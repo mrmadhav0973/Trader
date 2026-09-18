@@ -72,6 +72,45 @@ CRYPTO_MAP = {
     "TON": "TON-USD"
 }
 
+# Commodity shortcuts
+COMMODITY_MAP = {
+    "GOLD": "GC=F",
+    "SILVER": "SI=F",
+    "CRUDE": "CL=F",
+    "CRUDEOIL": "CL=F",
+    "OIL": "CL=F",
+    "NATGAS": "NG=F",
+    "NATURALGAS": "NG=F",
+    "COPPER": "HG=F",
+    "BRENT": "BZ=F",
+    "PALLADIUM": "PA=F",
+    "PLATINUM": "PL=F"
+}
+
+# Multi-Asset Screener Watchlists
+CRYPTO_SCREENER_WATCHLIST = [
+    "BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD", "XRP-USD",
+    "BNB-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "NEAR-USD",
+    "SUI-USD", "LTC-USD"
+]
+
+COMMODITY_SCREENER_WATCHLIST = [
+    "GC=F",   # Gold Futures
+    "SI=F",   # Silver Futures
+    "CL=F",   # Crude Oil WTI Futures
+    "NG=F",   # Natural Gas Futures
+    "HG=F",   # Copper Futures
+    "BZ=F"    # Brent Crude Oil Futures
+]
+
+STOCK_SCREENER_WATCHLIST = [
+    # Top Indian Equities (NSE)
+    "TATAPOWER.NS", "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
+    "ICICIBANK.NS", "SBIN.NS", "ITC.NS", "LT.NS", "BHARTIARTL.NS",
+    # Top US Equities / Tech / Crypto Miners
+    "NVDA", "TSLA", "AAPL", "MSFT", "COIN", "MSTR", "MARA", "AMD", "PLTR", "AMZN"
+]
+
 # Index shortcuts
 INDEX_MAP = {
     "NIFTY": "^NSEI",
@@ -96,11 +135,13 @@ def resolve_candidates(symbol: str) -> list[str]:
     """
     Generate prioritized candidate tickers for Yahoo Finance.
     Handles Indian equities (.NS, .BO), US/Global equities (raw),
-    Crypto (-USD), and Major Indices (^).
+    Crypto (-USD), Commodities (=F, .MCX), and Major Indices (^).
     """
     sym = symbol.strip().upper()
     if sym in INDEX_MAP:
         return [INDEX_MAP[sym]]
+    if sym in COMMODITY_MAP:
+        return [COMMODITY_MAP[sym]]
     if sym in CRYPTO_MAP:
         return [CRYPTO_MAP[sym]]
 
@@ -134,7 +175,7 @@ def get_symbol_currency(symbol: str) -> tuple[str, str]:
     Returns (currency_code, currency_symbol) e.g. ('USD', '$') or ('INR', '₹').
     """
     sym = symbol.upper()
-    if sym.endswith(".NS") or sym.endswith(".BO") or sym in ["^NSEI", "^NSEBANK", "^INDIAVIX"]:
+    if sym.endswith(".NS") or sym.endswith(".BO") or sym.endswith(".MCX") or sym in ["^NSEI", "^NSEBANK", "^INDIAVIX"]:
         return "INR", "₹"
     return "USD", "$"
 

@@ -1204,6 +1204,33 @@
     .score-badge.mid { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
     .score-badge.low { background: var(--color-bear-soft); color: var(--color-bear); }
 
+    .market-cat-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .market-cat-badge.crypto {
+      background: rgba(245, 158, 11, 0.12);
+      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .market-cat-badge.stocks {
+      background: rgba(59, 130, 246, 0.12);
+      color: #3B82F6;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .market-cat-badge.commodities {
+      background: rgba(168, 85, 247, 0.12);
+      color: #A855F7;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
     /* Loading indicator overlay */
     .loading-spinner {
       position: absolute;
@@ -1711,34 +1738,58 @@
     </aside>
   </main>
 
-  <!-- WATCHLIST SCREENER TABLE -->
-  <section class="watchlist-section">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+  <!-- MULTI-ASSET LIVE MARKET SCANNER (>80% GRADE SETUPS) -->
+  <section class="watchlist-section" id="marketScreenerSection">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
       <div>
-        <h3 style="font-size: 16px; font-weight: 800;">Market Screener: High Probability Setups</h3>
-        <p style="font-size: 12px; color: var(--text-muted);">Real-time scan across top NSE stocks ranked by Confluence Score</p>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">⚡</span>
+          <h3 style="font-size: 16px; font-weight: 800; letter-spacing: -0.01em;">Live Institutional Market Scanner (>80% Grade Setups)</h3>
+          <span id="screenerLiveCountBadge" class="score-badge" style="font-size: 10px; padding: 2px 8px; background: rgba(16, 185, 129, 0.15); color: var(--color-bull); border: 1px solid rgba(16, 185, 129, 0.3);">🟢 LIVE ONLY</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+          Dynamic multi-asset scan across actively open markets, ranked in descending order by Confluence Score. Strict &gt;80% (Grade A+) threshold.
+        </p>
       </div>
-      <button class="cap-pill" style="padding: 8px 14px; font-weight: 700; background: var(--bg-surface);" onclick="loadScreener()">⚡ Re-Scan Market</button>
+
+      <!-- Controls: Category Dropdown on the LEFT side of Re-Scan Market Button -->
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <label for="screenerCategorySelect" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Asset Class:</label>
+          <select id="screenerCategorySelect" class="cap-pill" style="padding: 7px 12px; font-weight: 700; background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: var(--radius-sm); cursor: pointer; outline: none;" onchange="onScreenerCategoryChange(this.value)">
+            <option value="all">🌐 All Live Markets</option>
+            <option value="crypto">🪙 Crypto (24/7 Live)</option>
+            <option value="stocks">📈 Stocks (Equities)</option>
+            <option value="commodities">🛢️ Commodities (Futures)</option>
+          </select>
+        </div>
+        <button id="btnReScanMarket" class="cap-pill" style="padding: 8px 14px; font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border-subtle); cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="loadScreener()">
+          <span id="reScanSpinner" style="display: inline-block;">⚡</span> <span>Re-Scan Market</span>
+        </button>
+      </div>
     </div>
 
-    <table class="watchlist-table">
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Price</th>
-          <th>Dominant Setup</th>
-          <th>Confluence Score</th>
-          <th>Signal</th>
-          <th>Recommended Shares</th>
-          <th>Target 1</th>
-          <th>Stop Loss</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="screenerTableBody">
-        <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Scanning market opportunities...</td></tr>
-      </tbody>
-    </table>
+    <div style="overflow-x: auto;">
+      <table class="watchlist-table">
+        <thead>
+          <tr>
+            <th>Market Type</th>
+            <th>Symbol</th>
+            <th>Live Price</th>
+            <th>Dominant Setup</th>
+            <th>Confluence Score</th>
+            <th>Signal</th>
+            <th>Recommended Sizing</th>
+            <th>Target 1</th>
+            <th>Stop Loss</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="screenerTableBody">
+          <tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--text-muted);">⚡ Scanning live market opportunities (>80% confluence)...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <!-- JAVASCRIPT: API CLIENT & DYNAMIC CHART ENGINE -->
@@ -3228,40 +3279,126 @@ Protocol: ${sc.scratch_rule}`;
       } catch (e) {}
     }
 
-    // 7. Watchlist Screener Loader
+    // 7. Multi-Asset Real-Time Screener Loader (>80% Grade Setups)
+    let currentScreenerCategory = 'all';
+    try {
+      const savedCat = localStorage.getItem('alphaedge_screener_category');
+      if (savedCat) currentScreenerCategory = savedCat;
+    } catch (e) {}
+
+    function onScreenerCategoryChange(val) {
+      currentScreenerCategory = val || 'all';
+      try {
+        localStorage.setItem('alphaedge_screener_category', currentScreenerCategory);
+      } catch (e) {}
+      loadScreener();
+    }
+
+    function initScreenerCategory() {
+      const catSelect = document.getElementById('screenerCategorySelect');
+      if (catSelect && currentScreenerCategory) {
+        catSelect.value = currentScreenerCategory;
+      }
+    }
+
     async function loadScreener() {
       const tbody = document.getElementById('screenerTableBody');
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">⚡ Scanning top Nifty stocks...</td></tr>';
+      const catSelect = document.getElementById('screenerCategorySelect');
+      const badge = document.getElementById('screenerLiveCountBadge');
+      const spinner = document.getElementById('reScanSpinner');
+
+      if (catSelect && catSelect.value !== currentScreenerCategory) {
+        catSelect.value = currentScreenerCategory;
+      }
+
+      if (spinner) spinner.style.transform = 'rotate(180deg)';
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--text-muted);"><span style="display:inline-block;">⚡</span> Scanning live markets for institutional >80% confluence setups...</td></tr>';
 
       try {
-        const res = await fetch(`/api/screener?capital=${currentCapital}`);
+        const res = await fetch(`/api/screener?capital=${currentCapital}&timeframe=${currentTimeframe}&category=${encodeURIComponent(currentScreenerCategory)}`);
         const data = await res.json();
-        let rows = '';
+        if (spinner) spinner.style.transform = 'none';
 
+        if (badge) {
+          const count = data.scanned_live_count || (data.setups ? data.setups.length : 0);
+          badge.textContent = `🟢 ${count} LIVE MARKETS SCANNED`;
+        }
+
+        if (!data.setups || data.setups.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="10" style="text-align: center; padding: 32px 16px; color: var(--text-muted);">
+                <div style="font-size: 24px; margin-bottom: 8px;">🎯</div>
+                <div style="font-weight: 800; font-size: 14px; color: var(--text-primary); margin-bottom: 6px;">No Setups Currently Exceed Strict >80% Confluence</div>
+                <div style="font-size: 12px; max-width: 520px; margin: 0 auto; line-height: 1.5; color: var(--text-secondary);">
+                  The scanner only displays institutional Grade A+ setups (&gt;80% setup score). All low-probability or closed-session setups are automatically filtered out. Check back on the next candle close or choose another asset class above.
+                </div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        let rows = '';
         data.setups.forEach(s => {
-          const badgeClass = s.confluence_score >= 70 ? 'score-badge' : (s.confluence_score >= 45 ? 'score-badge mid' : 'score-badge low');
+          const isBuy = s.signal.includes('BUY');
+          const curSym = s.currency_symbol || (s.currency === 'INR' ? '₹' : '$');
+          const isINR = s.currency === 'INR';
+          const loc = isINR ? 'en-IN' : 'en-US';
+
+          // Market Category Badge
+          let catBadge = '';
+          if (s.category === 'crypto') {
+            catBadge = '<span class="market-cat-badge crypto">🪙 Crypto</span>';
+          } else if (s.category === 'commodities') {
+            catBadge = '<span class="market-cat-badge commodities">🛢️ Commodity</span>';
+          } else {
+            catBadge = '<span class="market-cat-badge stocks">📈 Stock</span>';
+          }
+
+          // Unit label
+          const unitLabel = s.category === 'crypto' ? 'Units' : (s.category === 'commodities' ? 'Contracts' : 'Shares');
+
+          // Elite >80% badge (glowing institutional green)
+          const scoreBadge = `
+            <span class="score-badge" style="font-size: 11.5px; padding: 3px 9px; background: rgba(16, 185, 129, 0.2); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 800;">
+              ${s.confluence_score}% (${s.grade})
+            </span>
+          `;
+
           rows += `
             <tr class="watchlist-row" onclick="selectSymbol('${s.symbol}'); document.querySelector('.chart-container-card').scrollIntoView({ behavior: 'smooth' });">
+              <td>${catBadge}</td>
               <td><strong>${s.symbol}</strong></td>
-              <td>₹${s.price.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-              <td>${s.setup}</td>
-              <td><span class="${badgeClass}">${s.confluence_score}% (${s.grade})</span></td>
-              <td><strong style="color: ${s.signal.includes('BUY') ? 'var(--color-bull)' : 'var(--color-bear)'};">${s.signal}</strong></td>
-              <td>${s.quantity} Shares</td>
-              <td style="color: var(--color-bull); font-weight: 700;">₹${s.target_1}</td>
-              <td style="color: var(--color-bear); font-weight: 700;">₹${s.stop_loss}</td>
-              <td><button class="cap-pill" style="font-weight: 700;">Analyze</button></td>
+              <td style="font-family: var(--font-mono); font-weight: 700;">${curSym}${s.price.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+              <td style="font-size: 12px; font-weight: 600;">${s.setup}</td>
+              <td>${scoreBadge}</td>
+              <td>
+                <strong style="color: ${isBuy ? 'var(--color-bull)' : 'var(--color-bear)'}; display: inline-flex; align-items: center; gap: 4px;">
+                  <span>${isBuy ? '▲' : '▼'}</span> ${s.signal}
+                </strong>
+              </td>
+              <td style="font-family: var(--font-mono);">${s.quantity} ${unitLabel}</td>
+              <td style="color: var(--color-bull); font-weight: 700; font-family: var(--font-mono);">${curSym}${s.target_1.toLocaleString(loc, {minimumFractionDigits: 2})}</td>
+              <td style="color: var(--color-bear); font-weight: 700; font-family: var(--font-mono);">${curSym}${s.stop_loss.toLocaleString(loc, {minimumFractionDigits: 2})}</td>
+              <td>
+                <button class="cap-pill" style="font-weight: 700; padding: 5px 12px; background: var(--bg-surface); border: 1px solid var(--border-subtle); cursor: pointer;" onclick="event.stopPropagation(); selectSymbol('${s.symbol}'); document.querySelector('.chart-container-card').scrollIntoView({ behavior: 'smooth' });">
+                  Analyze
+                </button>
+              </td>
             </tr>
           `;
         });
         tbody.innerHTML = rows;
       } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--color-bear);">Failed to load screener.</td></tr>';
+        if (spinner) spinner.style.transform = 'none';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px; color: var(--color-bear);">Failed to load screener: ' + (e.message || 'Connection error') + '</td></tr>';
       }
     }
 
     // Initial Startup
     initScalperCockpitState();
+    initScreenerCategory();
     loadIndices();
     fetchAnalysis();
     loadScreener();

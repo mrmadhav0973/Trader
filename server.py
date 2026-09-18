@@ -13,10 +13,13 @@ from fastapi.staticfiles import StaticFiles
 import os
 import pandas as pd
 
-from core.data import fetch_ohlcv, DEFAULT_WATCHLIST, normalize_symbol
+from core.data import (
+    fetch_ohlcv, DEFAULT_WATCHLIST, normalize_symbol,
+    CRYPTO_SCREENER_WATCHLIST, COMMODITY_SCREENER_WATCHLIST, STOCK_SCREENER_WATCHLIST
+)
 from core.signals import analyze_symbol
 from core.stream import stream_engine
-from core.market_hours import get_market_status
+from core.market_hours import get_market_status, get_asset_category
 import threading
 import time
 
@@ -26,8 +29,7 @@ app = FastAPI(title="AlphaEdge Trading Terminal API")
 _ANALYSIS_CACHE: dict = {}
 _ANALYSIS_CACHE_TTL = 45.0  # 45 seconds cache
 
-_SCREENER_CACHE = None
-_SCREENER_CACHE_TIME = 0.0
+_SCREENER_CACHE: dict = {}
 _SCREENER_LOCK = threading.Lock()
 
 PRESET_SYMBOLS = [
@@ -54,45 +56,107 @@ def prewarm_cache():
 
 
     # Compute initial screener cache
-    refresh_screener_cache(5000.0, "1d")
+    refresh_screener_cache(5000.0, "1d", "all")
     print("[AlphaEdge] Cache pre-warming complete. Instant switching ready.")
 
 
+def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", category: str = "all"):
+    global _SCREENER_CACHE
+    cat = (category or "all").lower()
 
-def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d"):
-    global _SCREENER_CACHE, _SCREENER_CACHE_TIME
+    if cat == "crypto":
+        candidates = list(CRYPTO_SCREENER_WATCHLIST)
+    elif cat == "commodities":
+        candidates = list(COMMODITY_SCREENER_WATCHLIST)
+    elif cat == "stocks":
+        candidates = list(STOCK_SCREENER_WATCHLIST)
+    else:  # "all"
+        candidates = []
+        seen = set()
+        for sym in (CRYPTO_SCREENER_WATCHLIST + COMMODITY_SCREENER_WATCHLIST + STOCK_SCREENER_WATCHLIST):
+            if sym not in seen:
+                seen.add(sym)
+                candidates.append(sym)
+
     with _SCREENER_LOCK:
         results = []
-        for sym in DEFAULT_WATCHLIST[:10]:
+        scanned_live_count = 0
+
+        for sym in candidates:
             try:
+                # Strictly filter for LIVE active trading sessions only!
+                status = get_market_status(sym)
+                if not status.get("is_open", False):
+                    continue  # Skip closed markets completely
+
+                scanned_live_count += 1
                 df = fetch_ohlcv(sym, timeframe=timeframe)
+                if df is None or len(df) < 20:
+                    continue
+
                 a = analyze_symbol(df, capital=capital, risk_pct=0.02)
+                
+                # Compare classical multi-factor score and scalper tape score
+                scalp_score = a.get("scalp_mastery", {}).get("scalp_score", 0)
+                primary_score = a.get("confluence_score", 0)
+                setup_score = max(primary_score, scalp_score)
+
+                # STRICT > 80% GRADE SETUP FILTER
+                if setup_score < 80:
+                    continue
+
                 rp = a["risk_plan"]
-                setup_name = "Demand Zone Bounce"
-                if any(f["name"] == "Sell-Side Liquidity Sweep" and f["passed"] for f in a["confluence_factors"]):
-                    setup_name = "Liquidity Sweep + FVG"
-                elif any(f["name"] == "Bullish Trend Alignment" and f["passed"] for f in a["confluence_factors"]):
-                    setup_name = "EMA Breakout + Momentum"
+                currency = df.attrs.get("currency", "USD")
+                currency_symbol = df.attrs.get("currency_symbol", "$")
+
+                # Setup identification
+                setup_name = "Demand Zone Institutional Bounce"
+                if scalp_score > primary_score and scalp_score >= 80:
+                    setup_name = a.get("scalp_mastery", {}).get("scalp_setup", "Micro VWAP Momentum Surge")
+                elif any(f["name"] == "Sell-Side Liquidity Sweep" and f["passed"] for f in a.get("confluence_factors", [])):
+                    setup_name = "Liquidity Sweep + Bullish FVG"
+                elif any(f["name"] == "Bullish Trend Alignment" and f["passed"] for f in a.get("confluence_factors", [])):
+                    setup_name = "EMA Breakout + Volume Surge"
+                elif any(f["name"] == "RSI Bullish Momentum" and f["passed"] for f in a.get("confluence_factors", [])):
+                    setup_name = "Momentum Continuation"
+
+                sym_cat = status.get("category", get_asset_category(sym))
 
                 results.append({
                     "symbol": sym,
+                    "category": sym_cat,
+                    "market": status.get("market", "Live Market"),
                     "price": round(a["current_price"], 2),
+                    "currency": currency,
+                    "currency_symbol": currency_symbol,
                     "setup": setup_name,
-                    "confluence_score": a["confluence_score"],
+                    "confluence_score": setup_score,
                     "signal": a["signal_type"],
-                    "grade": a["signal_grade"],
+                    "grade": "Grade A+",
                     "quantity": rp["quantity"],
                     "stop_loss": round(rp["stop_loss"], 2),
                     "target_1": round(rp["target_1"], 2),
+                    "target_2": round(rp.get("target_2", rp["target_1"] * 1.02), 2),
                     "max_loss": round(rp["max_loss"], 2),
                     "profit_t1": round(rp["profit_target_1"], 2)
                 })
             except Exception:
                 continue
 
+        # Sort in strictly descending order from highest score to lowest
         results.sort(key=lambda x: x["confluence_score"], reverse=True)
-        _SCREENER_CACHE = {"setups": results}
-        _SCREENER_CACHE_TIME = time.time()
+        
+        cache_key = (cat, timeframe, capital)
+        payload = {
+            "category": cat,
+            "timeframe": timeframe,
+            "scanned_live_count": scanned_live_count,
+            "total_candidates": len(candidates),
+            "setups": results,
+            "timestamp": time.time()
+        }
+        _SCREENER_CACHE[cache_key] = payload
+        return payload
 
 
 @app.on_event("startup")
@@ -352,20 +416,27 @@ async def stream_market_ticks(
 
 @app.get("/api/screener")
 def run_screener(
-    capital: float = Query(5000.0, description="Trading capital in INR"),
-    timeframe: str = Query("1d", description="Timeframe")
+    capital: float = Query(5000.0, description="Trading capital"),
+    timeframe: str = Query("1d", description="Timeframe: 1m, 3m, 5m, 15m, 1h, 4h, 1d"),
+    category: str = Query("all", description="Market category: all, crypto, stocks, commodities")
 ):
     """
-    Run market screener across top watchlist stocks and rank them by confluence score.
-    Returns high-speed cached results to ensure instant terminal responsiveness.
+    Run multi-asset market screener across Stocks, Commodities, and Crypto.
+    Strictly filters for currently LIVE markets and setups with score >= 80% (Grade A+),
+    ranked in descending order from highest to lowest score.
     """
-    global _SCREENER_CACHE, _SCREENER_CACHE_TIME
+    global _SCREENER_CACHE
+    cat = (category or "all").lower()
+    cache_key = (cat, timeframe, capital)
     now = time.time()
-    if _SCREENER_CACHE is not None and (now - _SCREENER_CACHE_TIME) < 60.0:
-        return _SCREENER_CACHE
+    
+    if cache_key in _SCREENER_CACHE:
+        cached = _SCREENER_CACHE[cache_key]
+        if (now - cached.get("timestamp", 0)) < 45.0:
+            return cached
 
-    refresh_screener_cache(capital, timeframe)
-    return _SCREENER_CACHE or {"setups": []}
+    payload = refresh_screener_cache(capital=capital, timeframe=timeframe, category=cat)
+    return payload or {"category": cat, "timeframe": timeframe, "scanned_live_count": 0, "setups": []}
 
 
 if __name__ == "__main__":
