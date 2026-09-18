@@ -902,6 +902,59 @@
       box-shadow: 0 4px 16px rgba(139, 92, 246, 0.08);
     }
 
+    .scalper-toggle-btn {
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      border-radius: var(--radius-sm);
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #A855F7;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+
+    .scalper-toggle-btn:hover {
+      background: rgba(139, 92, 246, 0.22);
+      border-color: #A855F7;
+    }
+
+    .scalper-toggle-btn.active {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(236, 72, 153, 0.2));
+      border-color: #A855F7;
+      color: #C084FC;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+    }
+
+    .scalper-toggle-btn.off {
+      background: var(--bg-input);
+      border-color: var(--border-subtle);
+      color: var(--text-muted);
+      box-shadow: none;
+      opacity: 0.75;
+    }
+
+    .card-hide-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 2px 7px;
+      line-height: 1.2;
+      transition: var(--transition-smooth);
+    }
+
+    .card-hide-btn:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--color-bear);
+      color: var(--color-bear);
+    }
+
     .card-header-row {
       display: flex;
       justify-content: space-between;
@@ -1304,6 +1357,11 @@
       <label class="layer-toggle"><input type="checkbox" id="chkEMA" checked onchange="drawChart()"> 20/50 EMA</label>
       <label class="layer-toggle"><input type="checkbox" id="chkVWAP" checked onchange="drawChart()"> <span style="color:#A855F7; font-weight:700;">VWAP</span></label>
     </div>
+
+    <!-- Scalper Cockpit Visibility Toggle Button -->
+    <button id="btnToggleScalperCockpit" class="scalper-toggle-btn active" onclick="toggleScalperCockpit()" title="Toggle Scalper Cockpit Visibility">
+      <span>⚡</span> <span id="scalperToggleLabel">Scalper Cockpit: ON</span>
+    </button>
   </div>
 
   <!-- MAIN WORKSPACE -->
@@ -1489,7 +1547,10 @@
             </div>
             <div class="card-subtitle" style="font-size: 11px; color: var(--text-muted);" id="scalpSubtitle">Micro Tape & Sub-Minute Execution</div>
           </div>
-          <div class="signal-pill" id="scalpBiasBadge" style="background: #8B5CF6;">WATCH</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="signal-pill" id="scalpBiasBadge" style="background: #8B5CF6;">WATCH</div>
+            <button class="card-hide-btn" onclick="toggleScalperCockpit(false)" title="Hide Scalper Cockpit">✕ Hide</button>
+          </div>
         </div>
 
         <!-- Scalper Archetype & Grade -->
@@ -2104,6 +2165,10 @@
       if (document.getElementById('scalpHoldTimeText') && sc.time_horizon) {
         document.getElementById('scalpHoldTimeText').textContent = `${sc.time_horizon} • Sizing: ${scBp.quantity || 1} Shares`;
       }
+
+      // Preserve Scalper Cockpit Visibility Preference
+      const scalpCard = document.getElementById('scalperCockpitCard');
+      if (scalpCard) scalpCard.style.display = isScalperCockpitVisible ? 'block' : 'none';
 
       // Draw Candlestick & RSI Charts
       drawChart();
@@ -3097,6 +3162,55 @@ Protocol: ${sc.scratch_rule}`;
       });
     }
 
+    // ⚡ Scalper Cockpit Visibility Controller
+    let isScalperCockpitVisible = true;
+
+    function toggleScalperCockpit(forceState) {
+      if (typeof forceState === 'boolean') {
+        isScalperCockpitVisible = forceState;
+      } else {
+        isScalperCockpitVisible = !isScalperCockpitVisible;
+      }
+
+      const card = document.getElementById('scalperCockpitCard');
+      const btn = document.getElementById('btnToggleScalperCockpit');
+      const label = document.getElementById('scalperToggleLabel');
+
+      if (card) {
+        card.style.display = isScalperCockpitVisible ? 'block' : 'none';
+      }
+
+      if (btn && label) {
+        if (isScalperCockpitVisible) {
+          btn.className = 'scalper-toggle-btn active';
+          label.textContent = 'Scalper Cockpit: ON';
+          btn.title = 'Click to hide Scalper Cockpit';
+        } else {
+          btn.className = 'scalper-toggle-btn off';
+          label.textContent = 'Scalper Cockpit: OFF';
+          btn.title = 'Click to show Scalper Cockpit';
+        }
+      }
+
+      try {
+        localStorage.setItem('alphaedge_show_scalper_cockpit', isScalperCockpitVisible ? '1' : '0');
+      } catch (e) {}
+
+      showNotification(
+        isScalperCockpitVisible ? '⚡ Scalper Cockpit displayed' : '⚡ Scalper Cockpit hidden',
+        'info'
+      );
+    }
+
+    function initScalperCockpitState() {
+      try {
+        const saved = localStorage.getItem('alphaedge_show_scalper_cockpit');
+        if (saved === '0') {
+          toggleScalperCockpit(false);
+        }
+      } catch (e) {}
+    }
+
     // 7. Watchlist Screener Loader
     async function loadScreener() {
       const tbody = document.getElementById('screenerTableBody');
@@ -3130,6 +3244,7 @@ Protocol: ${sc.scratch_rule}`;
     }
 
     // Initial Startup
+    initScalperCockpitState();
     loadIndices();
     fetchAnalysis();
     loadScreener();
