@@ -1817,19 +1817,23 @@
       }, 4000);
     }
 
-    // 3. Main Data Fetcher & Analysis Loader (Guarded against race conditions)
-    async function fetchAnalysis() {
-      if (activeAbortController) {
-        try { activeAbortController.abort(); } catch (e) {}
+    // 3. Main Data Fetcher & Analysis Loader (Guarded against race conditions & Tunnel 502 blips)
+    async function fetchAnalysis(retryCount = 0) {
+      if (retryCount === 0) {
+        if (activeAbortController) {
+          try { activeAbortController.abort(); } catch (e) {}
+        }
+        activeAbortController = new AbortController();
       }
-      activeAbortController = new AbortController();
-      const signal = activeAbortController.signal;
+      const signal = activeAbortController ? activeAbortController.signal : null;
       const seq = ++currentFetchSeq;
 
       const loader = document.getElementById('chartLoader');
       if (loader) {
         loader.style.display = 'block';
-        loader.textContent = `⚡ Loading & Analyzing ${currentSymbol}...`;
+        loader.textContent = retryCount > 0 
+          ? `⚡ Re-connecting tunnel for ${currentSymbol} (Attempt ${retryCount + 1}/3)...`
+          : `⚡ Loading & Analyzing ${currentSymbol}...`;
       }
 
       try {
@@ -1838,6 +1842,19 @@
         
         // Discard stale response if a newer fetch was started
         if (seq !== currentFetchSeq) return;
+
+        // If Cloud tunnel returned 502/503/504 Bad Gateway/Timeout, automatically retry
+        if ([502, 503, 504].includes(res.status)) {
+          if (retryCount < 2) {
+            console.warn(`Tunnel returned HTTP ${res.status} for ${currentSymbol}. Auto-retrying in 1.2s...`);
+            await new Promise(r => setTimeout(r, 1200 * (retryCount + 1)));
+            if (seq === currentFetchSeq) {
+              return await fetchAnalysis(retryCount + 1);
+            }
+            return;
+          }
+          throw new Error(`Cloud gateway temporarily busy (HTTP ${res.status}). Click the symbol to reload.`);
+        }
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));

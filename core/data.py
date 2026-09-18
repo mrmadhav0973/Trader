@@ -29,7 +29,9 @@ DEFAULT_WATCHLIST = [
 
 # In-memory OHLCV Cache: (symbol, timeframe, period) -> (timestamp, df)
 _OHLCV_CACHE: dict = {}
+_FAILED_CANDIDATE_CACHE: dict = {}  # Negative cache to prevent hammering dead candidates
 CACHE_TTL_SECONDS = 60.0  # 1 minute fresh cache
+FAILED_TTL_SECONDS = 30.0  # 30 seconds negative cache
 
 # Common US / Global tickers (no exchange suffix on Yahoo Finance)
 COMMON_US_TICKERS = {
@@ -38,6 +40,7 @@ COMMON_US_TICKERS = {
     "ORCL", "CSCO", "QCOM", "ADBE", "SPY", "QQQ", "DIA", "IWM", "V", "MA",
     "JPM", "BAC", "WMT", "COST", "KO", "PEP", "XOM", "CVX", "NKE", "BA",
     "IBM", "SHOP", "SNOW", "SQ", "ROKU", "SOFI", "ARM", "SMCI", "AVGO", "MSTR",
+    "MARA", "RIOT", "CLSK", "HUT", "BITF", "WULF", "IREN", "CORZ", "CIFR", "HOOD",
     "HDB", "IBN"
 }
 
@@ -52,7 +55,21 @@ CRYPTO_MAP = {
     "ADA": "ADA-USD",
     "AVAX": "AVAX-USD",
     "DOT": "DOT-USD",
-    "LINK": "LINK-USD"
+    "LINK": "LINK-USD",
+    "NEAR": "NEAR-USD",
+    "SUI": "SUI-USD",
+    "RENDER": "RENDER-USD",
+    "PEPE": "PEPE-USD",
+    "SHIB": "SHIB-USD",
+    "APT": "APT-USD",
+    "FET": "FET-USD",
+    "TAO": "TAO-USD",
+    "INJ": "INJ-USD",
+    "MATIC": "MATIC-USD",
+    "LTC": "LTC-USD",
+    "BCH": "BCH-USD",
+    "TRX": "TRX-USD",
+    "TON": "TON-USD"
 }
 
 # Index shortcuts
@@ -87,13 +104,18 @@ def resolve_candidates(symbol: str) -> list[str]:
     if sym in CRYPTO_MAP:
         return [CRYPTO_MAP[sym]]
 
+    # Handle crypto shortcuts like BTCUSD -> BTC-USD
+    if sym.endswith("USD") and not sym.endswith("-USD") and len(sym) >= 6:
+        base = sym[:-3]
+        return [f"{base}-USD"]
+
     # If the user already provided an explicit exchange or asset suffix
     if any(c in sym for c in [".", "-", "=", "^"]):
         return [sym]
 
-    # If known popular US equity / ETF
+    # If known US equity / crypto miner: DO NOT waste 15s querying .NS or .BO!
     if sym in COMMON_US_TICKERS:
-        return [sym, f"{sym}.NS"]
+        return [sym]
 
     # For general bare tickers: try Indian NSE first, then raw US/global, then BSE
     return [f"{sym}.NS", sym, f"{sym}.BO"]
@@ -171,30 +193,30 @@ def fetch_ohlcv(
     df = None
     matched_candidate = None
 
-    # Try each candidate in prioritized order
+    # Try each candidate in prioritized order with fast failover
     for cand in candidates:
+        # Check negative cache to avoid repeating known dead candidates
+        if cand in _FAILED_CANDIDATE_CACHE:
+            fail_ts = _FAILED_CANDIDATE_CACHE[cand]
+            if now - fail_ts < FAILED_TTL_SECONDS:
+                continue
+
         try:
             ticker = yf.Ticker(cand)
-            for attempt in range(2):
-                try:
-                    df = ticker.history(period=period, interval=fetch_interval)
-                    if df is not None and not df.empty and len(df) >= 5:
-                        break
-                except Exception:
-                    pass
-                time.sleep(0.3)
-
-            # Fallback to 6mo if 1y was throttled
-            if (df is None or df.empty or len(df) < 5) and period == "1y":
-                try:
-                    df = ticker.history(period="6mo", interval=fetch_interval)
-                except Exception:
-                    pass
+            try:
+                # Fast single query without sleep
+                df = ticker.history(period=period, interval=fetch_interval, timeout=8)
+            except Exception:
+                df = None
 
             if df is not None and not df.empty and len(df) >= 5:
                 matched_candidate = cand
                 break
+            else:
+                # Cache as failed so we don't re-test this candidate for 30s
+                _FAILED_CANDIDATE_CACHE[cand] = now
         except Exception:
+            _FAILED_CANDIDATE_CACHE[cand] = now
             continue
 
     if df is None or df.empty or len(df) < 5 or not matched_candidate:
