@@ -83,6 +83,41 @@ def calculate_bollinger_bands(
     return upper.bfill(), mid.bfill(), lower.bfill(), bandwidth.bfill()
 
 
+def calculate_vwap(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """
+    Calculate Session Volume Weighted Average Price (VWAP) and ±1.5 StdDev Bands.
+    Anchored daily for intraday data, or uses rolling calculation for multi-day.
+    """
+    typical_price = (df["High"] + df["Low"] + df["Close"]) / 3.0
+    volume = df["Volume"].replace(0, 1.0)
+    tp_vol = typical_price * volume
+
+    # Group by date if DatetimeIndex
+    if isinstance(df.index, pd.DatetimeIndex) and len(df) > 1:
+        dates = df.index.date
+        cum_tp_vol = tp_vol.groupby(dates).cumsum()
+        cum_vol = volume.groupby(dates).cumsum()
+    else:
+        cum_tp_vol = tp_vol.cumsum()
+        cum_vol = volume.cumsum()
+
+    vwap = cum_tp_vol / cum_vol.replace(0, np.nan)
+    vwap = vwap.bfill().ffill()
+
+    # VWAP Variance & Standard Deviation
+    dev = (typical_price - vwap) ** 2
+    dev_vol = dev * volume
+    if isinstance(df.index, pd.DatetimeIndex) and len(df) > 1:
+        cum_dev = dev_vol.groupby(df.index.date).cumsum()
+    else:
+        cum_dev = dev_vol.cumsum()
+    vwap_std = np.sqrt(cum_dev / cum_vol.replace(0, np.nan)).fillna(0.0)
+
+    upper_band = vwap + (1.5 * vwap_std)
+    lower_band = vwap - (1.5 * vwap_std)
+    return vwap, upper_band, lower_band
+
+
 def detect_rsi_divergences(
     df: pd.DataFrame,
     swing_highs: list[dict],
@@ -161,6 +196,27 @@ def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["Volume_SMA_20"] = df["Volume"].rolling(window=20, min_periods=5).mean()
     df["Volume_Ratio"] = df["Volume"] / df["Volume_SMA_20"].replace(0, np.nan)
     df["Volume_Spike"] = df["Volume_Ratio"] >= 1.5
+
+    # Scalping Micro-Indicators & Fast Ribbon
+    df["EMA_9"] = calculate_ema(df["Close"], 9)
+    df["EMA_21"] = calculate_ema(df["Close"], 21)
+    df["RSI_7"] = calculate_rsi(df["Close"], 7)
+    df["Micro_ATR"] = calculate_atr(df, 5)
+
+    # Session VWAP and Standard Deviation Bands
+    vwap, vwap_up, vwap_low = calculate_vwap(df)
+    df["VWAP"] = vwap
+    df["VWAP_Upper"] = vwap_up
+    df["VWAP_Lower"] = vwap_low
+
+    # Order Flow Velocity & Tape Pressure Gauge
+    vol_sma_5 = df["Volume"].rolling(window=5, min_periods=2).mean().replace(0, 1.0)
+    df["Volume_Velocity"] = (df["Volume"] / vol_sma_5).fillna(1.0).round(2)
+
+    bull_force = (df["Close"] - df["Low"]) * df["Volume"]
+    bear_force = (df["High"] - df["Close"]) * df["Volume"]
+    total_force = (bull_force + bear_force).replace(0, 1.0)
+    df["Buy_Pressure_Pct"] = ((bull_force / total_force) * 100).fillna(50.0).clip(5, 95).round(1)
 
     # Absorption: High volume + narrow candle spread (smart money absorbing selling)
     candle_spread = df["High"] - df["Low"]

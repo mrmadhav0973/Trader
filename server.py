@@ -168,7 +168,7 @@ def get_market_indices():
 @app.get("/api/analyze")
 def get_analysis(
     symbol: str = Query("TATAPOWER.NS", description="Stock ticker"),
-    timeframe: str = Query("1d", description="Timeframe: 15m, 1h, 4h, 1d"),
+    timeframe: str = Query("1d", description="Timeframe: 1m, 3m, 5m, 15m, 1h, 4h, 1d"),
     capital: float = Query(5000.0, description="Available trading capital in INR"),
     risk_pct: float = Query(0.02, description="Risk percentage (e.g. 0.02 for 2%)")
 ):
@@ -203,15 +203,20 @@ def get_analysis(
         unix_ts = int(dt.timestamp())
         candles.append({
             "time": unix_ts,
-            "time_str": dt.strftime("%d %b %H:%M") if timeframe in ["15m", "1h", "4h"] else dt.strftime("%d %b %Y"),
+            "time_str": dt.strftime("%d %b %H:%M") if timeframe in ["1m", "3m", "5m", "15m", "1h", "4h"] else dt.strftime("%d %b %Y"),
             "open": round(float(row["Open"]), 2),
             "high": round(float(row["High"]), 2),
             "low": round(float(row["Low"]), 2),
             "close": round(float(row["Close"]), 2),
             "volume": int(row["Volume"]),
+            "ema9": round(float(row["EMA_9"]), 2) if "EMA_9" in row and not pd.isna(row["EMA_9"]) else None,
             "ema20": round(float(row["EMA_20"]), 2) if "EMA_20" in row and not pd.isna(row["EMA_20"]) else None,
+            "ema21": round(float(row["EMA_21"]), 2) if "EMA_21" in row and not pd.isna(row["EMA_21"]) else None,
             "ema50": round(float(row["EMA_50"]), 2) if "EMA_50" in row and not pd.isna(row["EMA_50"]) else None,
-            "rsi": round(float(row["RSI"]), 2) if "RSI" in row and not pd.isna(row["RSI"]) else None
+            "rsi": round(float(row["RSI"]), 2) if "RSI" in row and not pd.isna(row["RSI"]) else None,
+            "vwap": round(float(row["VWAP"]), 2) if "VWAP" in row and not pd.isna(row["VWAP"]) else None,
+            "vwap_upper": round(float(row["VWAP_Upper"]), 2) if "VWAP_Upper" in row and not pd.isna(row["VWAP_Upper"]) else None,
+            "vwap_lower": round(float(row["VWAP_Lower"]), 2) if "VWAP_Lower" in row and not pd.isna(row["VWAP_Lower"]) else None
         })
 
     # Prepare trendlines with strictly validated timestamps (start_time < end_time)
@@ -295,6 +300,7 @@ def get_analysis(
         "divergence": analysis.get("divergence", {}),
         "vsa": analysis.get("vsa", {}),
         "veteran_insights": analysis.get("veteran_insights", {}),
+        "scalp_mastery": analysis.get("scalp_mastery", {}),
         "market_status": get_market_status(resolved_sym)
     }
 

@@ -878,6 +878,30 @@
       color: #94A3B8 !important;
     }
 
+    /* Scalper Cockpit Specific Styling */
+    .scalper-cockpit-card {
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.08);
+    }
+
+    .scalper-cockpit-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #8B5CF6, #EC4899, #3B82F6);
+    }
+
+    [data-theme="light"] .scalper-cockpit-card {
+      background: #FFFFFF;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.08);
+    }
+
     .card-header-row {
       display: flex;
       justify-content: space-between;
@@ -1261,8 +1285,10 @@
     </div>
     <div id="statusToast" class="status-toast"></div>
 
-    <!-- Timeframe Switcher -->
+    <!-- Timeframe Switcher (Scalping 1m/5m + Intraday + Swing) -->
     <div class="timeframe-group">
+      <button class="tf-btn" onclick="setTimeframe(this, '1m')" title="⚡ Scalping 1-Minute Micro Tape">⚡ 1m</button>
+      <button class="tf-btn" onclick="setTimeframe(this, '5m')" title="⚡ Scalping 5-Minute Setup">⚡ 5m</button>
       <button class="tf-btn" onclick="setTimeframe(this, '15m')">15m</button>
       <button class="tf-btn" onclick="setTimeframe(this, '1h')">1h</button>
       <button class="tf-btn" onclick="setTimeframe(this, '4h')">4h</button>
@@ -1276,6 +1302,7 @@
       <label class="layer-toggle"><input type="checkbox" id="chkSMC" checked onchange="drawChart()"> Liquidity / FVG</label>
       <label class="layer-toggle"><input type="checkbox" id="chkVolume" checked onchange="drawChart()"> Vol Spikes</label>
       <label class="layer-toggle"><input type="checkbox" id="chkEMA" checked onchange="drawChart()"> 20/50 EMA</label>
+      <label class="layer-toggle"><input type="checkbox" id="chkVWAP" checked onchange="drawChart()"> <span style="color:#A855F7; font-weight:700;">VWAP</span></label>
     </div>
   </div>
 
@@ -1328,6 +1355,7 @@
           </div>
           <div class="legend-item"><div class="legend-dot" style="background:#3B82F6"></div> <span id="legEMA20">20 EMA</span></div>
           <div class="legend-item"><div class="legend-dot" style="background:#F59E0B"></div> <span id="legEMA50">50 EMA</span></div>
+          <div class="legend-item" id="legVWAPItem"><div class="legend-dot" style="background:#A855F7"></div> <span id="legVWAP">VWAP</span></div>
         </div>
 
         <div id="tvChartContainer"></div>
@@ -1450,6 +1478,80 @@
 
         <!-- Live Trade Milestone Notification Banner -->
         <div class="live-milestone-banner" id="liveMilestoneBanner" style="display: none;"></div>
+      </div>
+
+      <!-- ⚡ SCALPER COCKPIT (MICRO ORDER FLOW & VWAP EXECUTION) -->
+      <div class="card scalper-cockpit-card" id="scalperCockpitCard">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title" style="display:flex; align-items:center; gap:6px;">
+              <span>⚡</span> Scalper Cockpit
+            </div>
+            <div class="card-subtitle" style="font-size: 11px; color: var(--text-muted);" id="scalpSubtitle">Micro Tape & Sub-Minute Execution</div>
+          </div>
+          <div class="signal-pill" id="scalpBiasBadge" style="background: #8B5CF6;">WATCH</div>
+        </div>
+
+        <!-- Scalper Archetype & Grade -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--color-accent-blue);">Playbook Archetype</span>
+            <span style="font-size: 11px; font-family: var(--font-mono); font-weight: 800; color: #A855F7;" id="scalpGradeBadge">Grade --</span>
+          </div>
+          <div style="font-size: 13px; font-weight: 800; color: var(--text-primary);" id="scalpArchetypeName">Analyzing Micro Structure...</div>
+        </div>
+
+        <!-- Tape & Order Flow Delta Gauge -->
+        <div style="margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; margin-bottom: 6px;">
+            <span style="color: var(--color-bull);" id="scalpBuyPressure">Buy: 50%</span>
+            <span style="color: var(--text-muted); font-size: 10px;" id="scalpVolVelocity">Velocity: 1.0x</span>
+            <span style="color: var(--color-bear);" id="scalpSellPressure">Sell: 50%</span>
+          </div>
+          <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--bg-input); border: 1px solid var(--border-subtle);">
+            <div id="scalpBuyBar" style="background: var(--color-bull); width: 50%; transition: width 0.3s ease;"></div>
+            <div id="scalpSellBar" style="background: var(--color-bear); width: 50%; transition: width 0.3s ease;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+            <span>Aggressive Buyers</span>
+            <span id="scalpVwapBenchmarkText" style="color: #A855F7; font-weight: 600;">At VWAP</span>
+            <span>Aggressive Sellers</span>
+          </div>
+        </div>
+
+        <!-- Micro Blueprint Grid -->
+        <div class="risk-metric-grid" style="margin-bottom: 12px;">
+          <div class="metric-box">
+            <div class="metric-label">Micro Entry</div>
+            <div class="metric-value" id="scalpValEntry">₹...</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Micro-SL (Tight)</div>
+            <div class="metric-value highlight-bear" id="scalpValSL">₹...</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Scalp T1 (1:1.5)</div>
+            <div class="metric-value highlight-bull" id="scalpValT1">₹...</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Scalp T2 (1:2.5)</div>
+            <div class="metric-value highlight-bull" id="scalpValT2">₹...</div>
+          </div>
+        </div>
+
+        <!-- Scalper Execution & Scratch Rules Box -->
+        <div style="background: rgba(168, 85, 247, 0.08); border: 1px dashed rgba(168, 85, 247, 0.35); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 11px; line-height: 1.45; color: var(--text-secondary); margin-bottom: 12px;">
+          <div style="font-weight: 800; color: #A855F7; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            <span>⏱️</span> Scalper Time Protocol & Scratch Rule
+          </div>
+          <div id="scalpScratchRuleText">Strict Invalidation: If price does not advance immediately within 4 candles, scratch trade at breakeven.</div>
+          <div style="margin-top: 6px; font-weight: 600; color: var(--text-primary);" id="scalpHoldTimeText">Expected hold: 3 to 15 minutes</div>
+        </div>
+
+        <!-- Quick Scalp Action Button -->
+        <button class="btn-trade-primary" style="background: linear-gradient(135deg, #8B5CF6, #6D28D9); box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35); margin-top: 0;" onclick="copyScalpDetails()">
+          ⚡ Copy Scalp Order (Micro GTT)
+        </button>
       </div>
 
       <!-- Primary Setup Card -->
@@ -1816,6 +1918,7 @@
       // Legend
       if (lastCandle.ema20) document.getElementById('legEMA20').textContent = `20 EMA: ${cSym}${lastCandle.ema20}`;
       if (lastCandle.ema50) document.getElementById('legEMA50').textContent = `50 EMA: ${cSym}${lastCandle.ema50}`;
+      if (lastCandle.vwap && document.getElementById('legVWAP')) document.getElementById('legVWAP').textContent = `VWAP: ${cSym}${lastCandle.vwap}`;
 
       // Signal Badge
       const sigBadge = document.getElementById('signalBadge');
@@ -1924,6 +2027,82 @@
         document.getElementById('liveMilestoneBanner').style.display = 'none';
         document.getElementById('progressBarFill').style.width = '35%';
         document.getElementById('progressPointer').style.left = '35%';
+      }
+
+      // ⚡ Scalper Cockpit Card Data Binding
+      const sc = data.scalp_mastery || {};
+      const scBp = sc.blueprint || {};
+      const scOf = sc.order_flow || {};
+      const scVw = sc.vwap_benchmark || {};
+
+      const scalpBiasBadge = document.getElementById('scalpBiasBadge');
+      if (scalpBiasBadge) {
+        scalpBiasBadge.textContent = sc.scalp_bias || 'WATCH';
+        if ((sc.scalp_bias || '').includes('LONG')) {
+          scalpBiasBadge.className = 'signal-pill';
+          scalpBiasBadge.style.background = 'var(--color-bull)';
+        } else if ((sc.scalp_bias || '').includes('SHORT')) {
+          scalpBiasBadge.className = 'signal-pill bear';
+          scalpBiasBadge.style.background = 'var(--color-bear)';
+        } else {
+          scalpBiasBadge.className = 'signal-pill neutral';
+          scalpBiasBadge.style.background = '#8B5CF6';
+        }
+      }
+
+      if (document.getElementById('scalpSubtitle')) {
+        const isMicroTf = ['1m', '3m', '5m'].includes(currentTimeframe);
+        document.getElementById('scalpSubtitle').textContent = isMicroTf 
+          ? `Active Micro Tape (${currentTimeframe.toUpperCase()}) • Rapid Execution` 
+          : `Intraday Micro Pulse (${currentTimeframe.toUpperCase()}) • Switch to 1m/5m for Rapid Scalping`;
+      }
+      if (document.getElementById('scalpGradeBadge')) {
+        document.getElementById('scalpGradeBadge').textContent = `${sc.scalp_grade || 'Grade B'} (${sc.scalp_score || 50}/100)`;
+      }
+      if (document.getElementById('scalpArchetypeName')) {
+        document.getElementById('scalpArchetypeName').textContent = sc.archetype || 'Micro Range Scalp';
+      }
+
+      // Order Flow Delta & Tape Velocity
+      const buyPct = scOf.buy_pressure_pct !== undefined ? scOf.buy_pressure_pct : 50;
+      const sellPct = scOf.sell_pressure_pct !== undefined ? scOf.sell_pressure_pct : 50;
+      if (document.getElementById('scalpBuyPressure')) {
+        document.getElementById('scalpBuyPressure').textContent = `Buy: ${buyPct}%`;
+      }
+      if (document.getElementById('scalpSellPressure')) {
+        document.getElementById('scalpSellPressure').textContent = `Sell: ${sellPct}%`;
+      }
+      if (document.getElementById('scalpBuyBar')) {
+        document.getElementById('scalpBuyBar').style.width = `${buyPct}%`;
+      }
+      if (document.getElementById('scalpSellBar')) {
+        document.getElementById('scalpSellBar').style.width = `${sellPct}%`;
+      }
+      if (document.getElementById('scalpVolVelocity')) {
+        document.getElementById('scalpVolVelocity').textContent = `Velocity: ${scOf.volume_velocity || 1.0}x (${scOf.velocity_label || 'NORMAL'})`;
+      }
+      if (document.getElementById('scalpVwapBenchmarkText')) {
+        document.getElementById('scalpVwapBenchmarkText').textContent = scVw.position || `VWAP: ${cSym}${scVw.vwap || '--'}`;
+      }
+
+      // Micro Execution Blueprint
+      if (document.getElementById('scalpValEntry')) {
+        document.getElementById('scalpValEntry').textContent = scBp.entry ? `${cSym}${scBp.entry.toFixed(2)}` : `${cSym}${data.current_price.toFixed(2)}`;
+      }
+      if (document.getElementById('scalpValSL')) {
+        document.getElementById('scalpValSL').textContent = scBp.stop_loss ? `${cSym}${scBp.stop_loss.toFixed(2)} (-${scBp.risk_pct}%)` : '--';
+      }
+      if (document.getElementById('scalpValT1')) {
+        document.getElementById('scalpValT1').textContent = scBp.target_1 ? `${cSym}${scBp.target_1.toFixed(2)} (+${scBp.target_1_pct}%)` : '--';
+      }
+      if (document.getElementById('scalpValT2')) {
+        document.getElementById('scalpValT2').textContent = scBp.target_2 ? `${cSym}${scBp.target_2.toFixed(2)}` : '--';
+      }
+      if (document.getElementById('scalpScratchRuleText') && sc.scratch_rule) {
+        document.getElementById('scalpScratchRuleText').textContent = sc.scratch_rule;
+      }
+      if (document.getElementById('scalpHoldTimeText') && sc.time_horizon) {
+        document.getElementById('scalpHoldTimeText').textContent = `${sc.time_horizon} • Sizing: ${scBp.quantity || 1} Shares`;
       }
 
       // Draw Candlestick & RSI Charts
@@ -2210,6 +2389,9 @@
     let tvVolumeSeries = null;
     let tvEma20Series = null;
     let tvEma50Series = null;
+    let tvVwapSeries = null;
+    let tvVwapUpperSeries = null;
+    let tvVwapLowerSeries = null;
     let tvSupportTrendline = null;
     let tvResistanceTrendline = null;
     let tvPriceLines = [];
@@ -2325,6 +2507,35 @@
         lastValueVisible: false,
       });
 
+      // Session VWAP Line (Purple)
+      tvVwapSeries = tvChart.addLineSeries({
+        color: '#A855F7',
+        lineWidth: 2,
+        title: 'VWAP',
+        priceLineVisible: false,
+        lastValueVisible: true,
+      });
+
+      // VWAP Upper Band (+1.5 StdDev)
+      tvVwapUpperSeries = tvChart.addLineSeries({
+        color: 'rgba(168, 85, 247, 0.45)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dotted,
+        title: 'VWAP +1.5σ',
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+
+      // VWAP Lower Band (-1.5 StdDev)
+      tvVwapLowerSeries = tvChart.addLineSeries({
+        color: 'rgba(168, 85, 247, 0.45)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dotted,
+        title: 'VWAP -1.5σ',
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+
       // Crosshair HUD hover listener
       tvChart.subscribeCrosshairMove(param => {
         if (!currentAnalysis || !currentAnalysis.candles) return;
@@ -2435,9 +2646,14 @@
               low: l,
               close: cl,
               volume: Number(c.volume) || 0,
+              ema9: c.ema9 != null && !isNaN(c.ema9) ? Number(c.ema9) : null,
               ema20: c.ema20 != null && !isNaN(c.ema20) ? Number(c.ema20) : null,
+              ema21: c.ema21 != null && !isNaN(c.ema21) ? Number(c.ema21) : null,
               ema50: c.ema50 != null && !isNaN(c.ema50) ? Number(c.ema50) : null,
               rsi: c.rsi != null && !isNaN(c.rsi) ? Number(c.rsi) : null,
+              vwap: c.vwap != null && !isNaN(c.vwap) ? Number(c.vwap) : null,
+              vwap_upper: c.vwap_upper != null && !isNaN(c.vwap_upper) ? Number(c.vwap_upper) : null,
+              vwap_lower: c.vwap_lower != null && !isNaN(c.vwap_lower) ? Number(c.vwap_lower) : null,
             });
             lastTs = t;
           }
@@ -2484,6 +2700,34 @@
           }
         } catch (e) {
           console.warn('EMA layer error:', e);
+        }
+
+        // 3b. Session VWAP & Micro Scalp Bands
+        try {
+          const chkVWAP = document.getElementById('chkVWAP');
+          const showVWAP = chkVWAP ? chkVWAP.checked : true;
+          if (tvVwapSeries) tvVwapSeries.applyOptions({ visible: showVWAP });
+          if (tvVwapUpperSeries) tvVwapUpperSeries.applyOptions({ visible: showVWAP });
+          if (tvVwapLowerSeries) tvVwapLowerSeries.applyOptions({ visible: showVWAP });
+          if (showVWAP && tvVwapSeries) {
+            const vwapData = sortedCandles.filter(c => c.vwap !== null).map(c => ({
+              time: c.time,
+              value: c.vwap,
+            }));
+            const vwapUpData = sortedCandles.filter(c => c.vwap_upper !== null).map(c => ({
+              time: c.time,
+              value: c.vwap_upper,
+            }));
+            const vwapLowData = sortedCandles.filter(c => c.vwap_lower !== null).map(c => ({
+              time: c.time,
+              value: c.vwap_lower,
+            }));
+            if (vwapData.length > 0) tvVwapSeries.setData(vwapData);
+            if (vwapUpData.length > 0) tvVwapUpperSeries.setData(vwapUpData);
+            if (vwapLowData.length > 0) tvVwapLowerSeries.setData(vwapLowData);
+          }
+        } catch (e) {
+          console.warn('VWAP layer error:', e);
         }
 
         // 4. Trade Blueprint Price Lines
@@ -2829,6 +3073,27 @@ Max Risk: ${cSym}${rp.max_loss} (2% of capital)`;
 
       navigator.clipboard.writeText(text).then(() => {
         alert('Trade Order Plan copied to clipboard! You can now paste this directly into your broker GTT order form.');
+      });
+    }
+
+    function copyScalpDetails() {
+      if (!currentAnalysis || !currentAnalysis.scalp_mastery) return;
+      const sc = currentAnalysis.scalp_mastery;
+      const bp = sc.blueprint || {};
+      const cSym = getCurrencySymbol();
+      const text = `--- AlphaEdge SCALP EXECUTION PLAN ---
+Asset: ${currentAnalysis.symbol} (${currentAnalysis.timeframe.toUpperCase()})
+Setup: ${sc.archetype}
+Bias: ${sc.scalp_bias} (${sc.scalp_grade})
+Entry: ${cSym}${bp.entry} (${bp.entry_range || ''})
+Micro-SL: ${cSym}${bp.stop_loss} (${bp.risk_pct}% tight risk)
+Target 1 (1:1.5): ${cSym}${bp.target_1}
+Target 2 (1:2.5): ${cSym}${bp.target_2}
+Quantity: ${bp.quantity} Shares
+Protocol: ${sc.scratch_rule}`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        showNotification('⚡ Scalp execution order plan copied to clipboard!', 'info');
       });
     }
 

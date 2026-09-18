@@ -17,6 +17,7 @@ from .patterns import (
 )
 from .smc import detect_fair_value_gaps, detect_liquidity_sweeps
 from .risk import calculate_position_sizing
+from .scalp import analyze_scalp_setup
 
 
 def generate_veteran_commentary(
@@ -377,6 +378,16 @@ def analyze_symbol(
         currency_symbol=curr_sym
     )
 
+    # 6. Scalping Mastery Micro-Analysis (Order Flow, VWAP, Fast Invalidation)
+    scalp_mastery = analyze_scalp_setup(
+        df=df,
+        candlestick_patterns=candlestick_patterns,
+        sweeps=sweeps,
+        fvgs=fvgs,
+        capital=capital,
+        risk_pct=risk_pct
+    )
+
     return {
         "df": df,
         "current_price": current_price,
@@ -395,5 +406,6 @@ def analyze_symbol(
         "candlestick_patterns": candlestick_patterns,
         "divergence": divergence,
         "vsa": vsa,
-        "veteran_insights": veteran_insights
+        "veteran_insights": veteran_insights,
+        "scalp_mastery": scalp_mastery
     }

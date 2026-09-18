@@ -136,7 +136,9 @@ def fetch_ohlcv(
     candidates = resolve_candidates(symbol)
 
     if period is None:
-        if timeframe in ["1m", "5m", "15m"]:
+        if timeframe in ["1m"]:
+            period = "5d"
+        elif timeframe in ["3m", "5m", "15m"]:
             period = "1mo"
         elif timeframe in ["1h", "60m"]:
             period = "6mo"
@@ -155,6 +157,9 @@ def fetch_ohlcv(
 
     # yfinance interval mapping
     interval_map = {
+        "1m": "1m",
+        "3m": "1m",  # Will resample to 3min
+        "5m": "5m",
         "15m": "15m",
         "1h": "60m",
         "4h": "60m",  # yfinance doesn't have native 4h, we fetch 1h and resample
@@ -219,9 +224,17 @@ def fetch_ohlcv(
     df["Datetime"] = pd.to_datetime(df["Datetime"])
     df.set_index("Datetime", inplace=True)
 
-    # Resample to 4H if requested
+    # Resample if requested (4h or 3m)
     if timeframe == "4h":
         df = df.resample("4h").agg({
+            "Open": "first",
+            "High": "max",
+            "Low": "min",
+            "Close": "last",
+            "Volume": "sum"
+        }).dropna()
+    elif timeframe == "3m":
+        df = df.resample("3min").agg({
             "Open": "first",
             "High": "max",
             "Low": "min",
