@@ -1021,6 +1021,166 @@
     .gauge-grade { font-size: 14px; font-weight: 800; color: var(--color-bull); }
     .gauge-desc { font-size: 11px; color: var(--text-muted); }
 
+    /* ==========================================
+       STRATEGY CONFLUENCE CIRCLE & MATRIX CSS
+       ========================================== */
+    .strategy-confluence-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px;
+      background: var(--bg-card);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .strategy-confluence-box::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(180deg, #3B82F6, #10B981);
+    }
+    .strategy-ring-circle {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: conic-gradient(#10B981 0% 75%, var(--border-subtle) 75% 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.25);
+      transition: background 0.35s ease, box-shadow 0.35s ease;
+    }
+    .strategy-ring-circle::before {
+      content: "";
+      width: 46px;
+      height: 46px;
+      background: var(--bg-card);
+      border-radius: 50%;
+      position: absolute;
+    }
+    .strategy-ring-score {
+      position: relative;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 14.5px;
+      color: var(--text-primary);
+    }
+    .strategy-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+    .strategy-headline {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .strategy-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* Strategy Matrix Cards */
+    .strategy-matrix-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .strategy-card-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      transition: var(--transition-smooth);
+    }
+    .strategy-card-item.active {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.04);
+    }
+    .strategy-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .strategy-title-text {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .strategy-status-tag {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .strategy-status-tag.active-bull {
+      background: var(--color-bull-soft);
+      color: var(--color-bull);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .strategy-status-tag.active-bear {
+      background: var(--color-bear-soft);
+      color: var(--color-bear);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .strategy-status-tag.inactive {
+      background: var(--bg-input);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+    .strategy-criteria-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 4px;
+      margin-bottom: 6px;
+    }
+    .criteria-chip {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+    .criteria-chip.passed {
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.3);
+      color: #3B82F6;
+      font-weight: 600;
+    }
+    .scratch-rule-pill {
+      font-size: 10.5px;
+      line-height: 1.4;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px dashed rgba(245, 158, 11, 0.3);
+      color: var(--text-secondary);
+    }
+
     .risk-metric-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1663,6 +1823,21 @@
           </div>
         </div>
 
+        <!-- ⚡ NEW STRATEGY CONFLUENCE CIRCLE -->
+        <div class="strategy-confluence-box" id="strategyConfluenceBox">
+          <div class="strategy-ring-circle" id="strategyRingCircle">
+            <span class="strategy-ring-score" id="strategyRingScore">0/4</span>
+          </div>
+          <div class="strategy-details">
+            <div class="strategy-headline" id="strategyRingGrade">
+              <span>🏛️</span> <span id="strategyRingGradeText">Scanning Models (0/4)...</span>
+            </div>
+            <div class="strategy-subtitle" id="strategyRingSubtitle">
+              Evaluating 4 Institutional Trading Strategies on current chart
+            </div>
+          </div>
+        </div>
+
         <!-- Risk & Price Targets Grid -->
         <div class="risk-metric-grid">
           <div class="metric-box">
@@ -1726,6 +1901,28 @@
         </button>
       </div>
 
+      <!-- 🏛️ 4 INSTITUTIONAL STRATEGIES MATRIX CARD -->
+      <div class="card" id="institutionalStrategiesCard" style="border-left: 3px solid #3B82F6;">
+        <div class="card-header-row" style="margin-bottom: 8px;">
+          <div>
+            <div class="card-title" style="display:flex; align-items:center; gap:6px;">
+              <span>🏛️</span> Institutional Strategy Matrix
+            </div>
+            <div class="card-subtitle" style="font-size: 11px; color: var(--text-muted);">
+              4 Proprietary 'Near-Zero Failure' Models & Breakeven Scratch Protocols
+            </div>
+          </div>
+          <div id="strategyConsensusBadge" class="strategy-status-tag" style="background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-primary);">
+            0/4 ACTIVE
+          </div>
+        </div>
+
+        <div class="strategy-matrix-container" id="strategyMatrixContainer">
+          <!-- Dynamically populated from API -->
+          <div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 12px;">Evaluating institutional models...</div>
+        </div>
+      </div>
+
       <!-- Confluence Checklist Card -->
       <div class="card">
         <div class="card-title" style="margin-bottom: 12px;">Confluence Checklist</div>
@@ -1778,6 +1975,7 @@
             <th>Live Price</th>
             <th>Dominant Setup</th>
             <th>Confluence Score</th>
+            <th>Strategy Alignment</th>
             <th>Signal</th>
             <th>Recommended Sizing</th>
             <th>Target 1</th>
@@ -1786,7 +1984,7 @@
           </tr>
         </thead>
         <tbody id="screenerTableBody">
-          <tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--text-muted);">⚡ Scanning live market opportunities (>80% confluence)...</td></tr>
+          <tr><td colspan="11" style="text-align: center; padding: 24px; color: var(--text-muted);">⚡ Scanning live market opportunities (>80% confluence)...</td></tr>
         </tbody>
       </table>
     </div>
@@ -2060,7 +2258,7 @@
         sigBadge.className = 'signal-pill bear';
       }
 
-      // Confluence Meter
+      // Confluence Meter (Original - Unaltered)
       document.getElementById('gaugeScore').textContent = `${data.confluence_score}%`;
       document.getElementById('gaugeGrade').textContent = `${data.signal_grade} Setup`;
       document.getElementById('gaugeDesc').textContent = `${data.confluence_score}% of confluence factors aligned`;
@@ -2068,6 +2266,91 @@
       const gaugeCircle = document.getElementById('gaugeCircle');
       const scoreColor = data.confluence_score >= 70 ? 'var(--color-bull)' : (data.confluence_score >= 45 ? '#F59E0B' : 'var(--color-bear)');
       gaugeCircle.style.background = `conic-gradient(${scoreColor} 0% ${data.confluence_score}%, var(--border-subtle) ${data.confluence_score}% 100%)`;
+
+      // ⚡ Institutional Strategy Confluence Ring & Matrix
+      const stratData = data.institutional_strategies || {
+        active_count: 0,
+        total_strategies: 4,
+        alignment_pct: 0,
+        alignment_grade: 'SCANNING FOR SETUPS (0/4)',
+        ring_color: '#64748B',
+        status_label: 'Evaluating 4 Institutional Models on current chart',
+        consensus_bias: 'NEUTRAL',
+        strategies: []
+      };
+
+      if (document.getElementById('strategyRingScore')) {
+        document.getElementById('strategyRingScore').textContent = `${stratData.active_count}/${stratData.total_strategies || 4}`;
+      }
+      if (document.getElementById('strategyRingCircle')) {
+        const ringCircle = document.getElementById('strategyRingCircle');
+        const rColor = stratData.ring_color || '#3B82F6';
+        ringCircle.style.background = `conic-gradient(${rColor} 0% ${stratData.alignment_pct}%, var(--border-subtle) ${stratData.alignment_pct}% 100%)`;
+        ringCircle.style.boxShadow = `0 0 14px ${rColor}40`;
+      }
+      if (document.getElementById('strategyRingGradeText')) {
+        document.getElementById('strategyRingGradeText').textContent = stratData.alignment_grade;
+      }
+      if (document.getElementById('strategyRingSubtitle')) {
+        document.getElementById('strategyRingSubtitle').textContent = stratData.status_label;
+      }
+
+      // Consensus Badge
+      if (document.getElementById('strategyConsensusBadge')) {
+        const cBadge = document.getElementById('strategyConsensusBadge');
+        cBadge.textContent = `${stratData.active_count}/4 ACTIVE (${stratData.consensus_bias || 'NEUTRAL'})`;
+        if (stratData.active_count >= 2) {
+          cBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+          cBadge.style.color = '#10B981';
+          cBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+        } else if (stratData.active_count === 1) {
+          cBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+          cBadge.style.color = '#F59E0B';
+          cBadge.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+        } else {
+          cBadge.style.background = 'var(--bg-card)';
+          cBadge.style.color = 'var(--text-muted)';
+          cBadge.style.borderColor = 'var(--border-subtle)';
+        }
+      }
+
+      // Strategy Matrix Cards
+      const matrixContainer = document.getElementById('strategyMatrixContainer');
+      if (matrixContainer && stratData.strategies && stratData.strategies.length > 0) {
+        let matrixHtml = '';
+        stratData.strategies.forEach(s => {
+          const isActive = s.active;
+          const statusClass = isActive ? (s.bias === 'BULLISH' ? 'active-bull' : 'active-bear') : 'inactive';
+          const statusText = isActive ? `● ${s.bias} ACTIVE (${s.confidence_score}%)` : `○ SCANNING (0%)`;
+          
+          let chipsHtml = '';
+          if (s.criteria_passed && s.criteria_passed.length > 0) {
+            chipsHtml = s.criteria_passed.map(c => `<span class="criteria-chip passed">✓ ${c}</span>`).join('');
+          } else {
+            chipsHtml = `<span class="criteria-chip">○ Awaiting trigger criteria</span>`;
+          }
+
+          matrixHtml += `
+            <div class="strategy-card-item ${isActive ? 'active' : ''}">
+              <div class="strategy-card-header">
+                <div class="strategy-title-text">
+                  <span>${isActive ? '⚡' : '▫️'}</span>
+                  <span>${s.name}</span>
+                </div>
+                <div class="strategy-status-tag ${statusClass}">${statusText}</div>
+              </div>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; line-height: 1.35;">${s.description || ''}</div>
+              <div class="strategy-criteria-list">
+                ${chipsHtml}
+              </div>
+              <div class="scratch-rule-pill">
+                ${s.scratch_rule}
+              </div>
+            </div>
+          `;
+        });
+        matrixContainer.innerHTML = matrixHtml;
+      }
 
       // Execution Blueprint Metrics
       const rp = data.risk_plan;
@@ -3312,7 +3595,7 @@ Protocol: ${sc.scratch_rule}`;
       }
 
       if (spinner) spinner.style.transform = 'rotate(180deg)';
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--text-muted);"><span style="display:inline-block;">⚡</span> Scanning live markets for institutional >80% confluence setups...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 24px; color: var(--text-muted);"><span style="display:inline-block;">⚡</span> Scanning live markets for institutional >80% confluence setups...</td></tr>';
 
       try {
         const res = await fetch(`/api/screener?capital=${currentCapital}&timeframe=${currentTimeframe}&category=${encodeURIComponent(currentScreenerCategory)}`);
@@ -3327,7 +3610,7 @@ Protocol: ${sc.scratch_rule}`;
         if (!data.setups || data.setups.length === 0) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="10" style="text-align: center; padding: 32px 16px; color: var(--text-muted);">
+              <td colspan="11" style="text-align: center; padding: 32px 16px; color: var(--text-muted);">
                 <div style="font-size: 24px; margin-bottom: 8px;">🎯</div>
                 <div style="font-weight: 800; font-size: 14px; color: var(--text-primary); margin-bottom: 6px;">No Setups Currently Exceed Strict >80% Confluence</div>
                 <div style="font-size: 12px; max-width: 520px; margin: 0 auto; line-height: 1.5; color: var(--text-secondary);">
@@ -3366,6 +3649,17 @@ Protocol: ${sc.scratch_rule}`;
             </span>
           `;
 
+          // Strategy Alignment Badge
+          const sa = s.strategy_alignment || { active_count: 0, total: 4 };
+          const stratColor = sa.active_count >= 2 ? '#10B981' : (sa.active_count === 1 ? '#3B82F6' : '#64748B');
+          const stratBg = sa.active_count >= 2 ? 'rgba(16, 185, 129, 0.15)' : (sa.active_count === 1 ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.15)');
+          const stratBorder = sa.active_count >= 2 ? 'rgba(16, 185, 129, 0.35)' : (sa.active_count === 1 ? 'rgba(59, 130, 246, 0.35)' : 'rgba(100, 116, 139, 0.35)');
+          const stratBadge = `
+            <span class="score-badge" style="font-size: 11px; padding: 3px 8px; background: ${stratBg}; color: ${stratColor}; border: 1px solid ${stratBorder}; font-weight: 800;">
+              ⚡ ${sa.active_count}/4 Active
+            </span>
+          `;
+
           rows += `
             <tr class="watchlist-row" onclick="selectSymbol('${s.symbol}'); document.querySelector('.chart-container-card').scrollIntoView({ behavior: 'smooth' });">
               <td>${catBadge}</td>
@@ -3373,6 +3667,7 @@ Protocol: ${sc.scratch_rule}`;
               <td style="font-family: var(--font-mono); font-weight: 700;">${curSym}${s.price.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
               <td style="font-size: 12px; font-weight: 600;">${s.setup}</td>
               <td>${scoreBadge}</td>
+              <td>${stratBadge}</td>
               <td>
                 <strong style="color: ${isBuy ? 'var(--color-bull)' : 'var(--color-bear)'}; display: inline-flex; align-items: center; gap: 4px;">
                   <span>${isBuy ? '▲' : '▼'}</span> ${s.signal}
@@ -3392,7 +3687,7 @@ Protocol: ${sc.scratch_rule}`;
         tbody.innerHTML = rows;
       } catch (e) {
         if (spinner) spinner.style.transform = 'none';
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px; color: var(--color-bear);">Failed to load screener: ' + (e.message || 'Connection error') + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px; color: var(--color-bear);">Failed to load screener: ' + (e.message || 'Connection error') + '</td></tr>';
       }
     }
 

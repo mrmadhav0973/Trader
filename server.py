@@ -121,6 +121,10 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
                     setup_name = "Momentum Continuation"
 
                 sym_cat = status.get("category", get_asset_category(sym))
+                strat_info = a.get("institutional_strategies", {})
+                active_count = strat_info.get("active_count", 0)
+                active_names = strat_info.get("active_names", [])
+                alignment_grade = strat_info.get("alignment_grade", "SCANNING (0/4)")
 
                 results.append({
                     "symbol": sym,
@@ -133,6 +137,12 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
                     "confluence_score": setup_score,
                     "signal": a["signal_type"],
                     "grade": "Grade A+",
+                    "strategy_alignment": {
+                        "active_count": active_count,
+                        "total": 4,
+                        "grade": alignment_grade,
+                        "active_names": active_names
+                    },
                     "quantity": rp["quantity"],
                     "stop_loss": round(rp["stop_loss"], 2),
                     "target_1": round(rp["target_1"], 2),
@@ -365,6 +375,7 @@ def get_analysis(
         "vsa": analysis.get("vsa", {}),
         "veteran_insights": analysis.get("veteran_insights", {}),
         "scalp_mastery": analysis.get("scalp_mastery", {}),
+        "institutional_strategies": analysis.get("institutional_strategies", {}),
         "market_status": get_market_status(resolved_sym)
     }
 

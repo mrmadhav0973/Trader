@@ -18,6 +18,7 @@ from .patterns import (
 from .smc import detect_fair_value_gaps, detect_liquidity_sweeps
 from .risk import calculate_position_sizing
 from .scalp import analyze_scalp_setup
+from .strategies import evaluate_institutional_strategies
 
 
 def generate_veteran_commentary(
@@ -388,6 +389,16 @@ def analyze_symbol(
         risk_pct=risk_pct
     )
 
+    # 7. Institutional 'Near-Zero Failure' Multi-Strategy Engine
+    institutional_strategies = evaluate_institutional_strategies(
+        df=df,
+        sweeps=sweeps,
+        fvgs=fvgs,
+        candlestick_patterns=candlestick_patterns,
+        vsa=vsa,
+        divergence=divergence
+    )
+
     return {
         "df": df,
         "current_price": current_price,
@@ -407,5 +418,6 @@ def analyze_symbol(
         "divergence": divergence,
         "vsa": vsa,
         "veteran_insights": veteran_insights,
-        "scalp_mastery": scalp_mastery
+        "scalp_mastery": scalp_mastery,
+        "institutional_strategies": institutional_strategies
     }
