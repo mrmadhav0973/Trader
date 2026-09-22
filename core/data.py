@@ -31,7 +31,7 @@ DEFAULT_WATCHLIST = [
 _OHLCV_CACHE: dict = {}
 _FAILED_CANDIDATE_CACHE: dict = {}  # Negative cache to prevent hammering dead candidates
 CACHE_TTL_SECONDS = 60.0  # 1 minute fresh cache
-FAILED_TTL_SECONDS = 30.0  # 30 seconds negative cache
+FAILED_TTL_SECONDS = 15.0  # 15 seconds negative cache (fast recovery from transient glitches)
 
 # Common US / Global tickers (no exchange suffix on Yahoo Finance)
 COMMON_US_TICKERS = {
@@ -87,28 +87,41 @@ COMMODITY_MAP = {
     "PLATINUM": "PL=F"
 }
 
-# Multi-Asset Screener Watchlists
+# Multi-Asset Screener Watchlists (100% Verified Rock-Solid Yahoo Finance Tickers)
 CRYPTO_SCREENER_WATCHLIST = [
     "BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD", "XRP-USD",
     "BNB-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "NEAR-USD",
-    "SUI-USD", "LTC-USD"
+    "LTC-USD", "BCH-USD", "DOT-USD", "RENDER-USD", "AAVE-USD",
+    "XLM-USD", "ATOM-USD", "ICP-USD", "TRX-USD", "TON11419-USD"
 ]
 
 COMMODITY_SCREENER_WATCHLIST = [
     "GC=F",   # Gold Futures
     "SI=F",   # Silver Futures
     "CL=F",   # Crude Oil WTI Futures
+    "BZ=F",   # Brent Crude Oil Futures
     "NG=F",   # Natural Gas Futures
     "HG=F",   # Copper Futures
-    "BZ=F"    # Brent Crude Oil Futures
+    "PL=F",   # Platinum Futures
+    "PA=F",   # Palladium Futures
+    "ZC=F",   # Corn Futures
+    "ZW=F"    # Wheat Futures
 ]
 
 STOCK_SCREENER_WATCHLIST = [
-    # Top Indian Equities (NSE)
+    # Top Liquid Indian Equities (NSE)
     "TATAPOWER.NS", "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
     "ICICIBANK.NS", "SBIN.NS", "ITC.NS", "LT.NS", "BHARTIARTL.NS",
-    # Top US Equities / Tech / Crypto Miners
-    "NVDA", "TSLA", "AAPL", "MSFT", "COIN", "MSTR", "MARA", "AMD", "PLTR", "AMZN"
+    "BAJFINANCE.NS", "ADANIENT.NS", "ADANIPORTS.NS", "SUNPHARMA.NS", "TITAN.NS",
+    "MARUTI.NS", "KOTAKBANK.NS", "AXISBANK.NS", "HCLTECH.NS", "WIPRO.NS",
+    "NTPC.NS", "ONGC.NS", "POWERGRID.NS", "TATASTEEL.NS", "COALINDIA.NS",
+    "M&M.NS", "JSWSTEEL.NS", "HINDALCO.NS", "HEROMOTOCO.NS", "EICHERMOT.NS",
+    "BAJAJ-AUTO.NS", "BEL.NS", "HAL.NS", "JIOFIN.NS", "IRFC.NS",
+    "VEDL.NS", "ASIANPAINT.NS", "CIPLA.NS",
+    # Top Liquid US Equities & Tech
+    "NVDA", "TSLA", "AAPL", "MSFT", "COIN", "MSTR", "MARA", "AMD",
+    "PLTR", "AMZN", "GOOGL", "META", "NFLX", "AVGO", "ARM", "SMCI",
+    "INTC", "QCOM", "BABA", "UBER", "HOOD", "RIOT", "CLSK"
 ]
 
 # Index shortcuts

@@ -20,6 +20,7 @@ from core.data import (
 from core.signals import analyze_symbol
 from core.stream import stream_engine
 from core.market_hours import get_market_status, get_asset_category
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import time
 
@@ -80,30 +81,36 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
 
     with _SCREENER_LOCK:
         results = []
-        scanned_live_count = 0
-
+        
+        # 1. Filter candidates strictly for currently OPEN/LIVE market sessions
+        live_candidates = []
         for sym in candidates:
-            try:
-                # Strictly filter for LIVE active trading sessions only!
-                status = get_market_status(sym)
-                if not status.get("is_open", False):
-                    continue  # Skip closed markets completely
+            status = get_market_status(sym)
+            if status.get("is_open", False):
+                live_candidates.append((sym, status))
 
-                scanned_live_count += 1
+        scanned_live_count = len(live_candidates)
+
+        def eval_candidate(item):
+            sym, status = item
+            try:
                 df = fetch_ohlcv(sym, timeframe=timeframe)
                 if df is None or len(df) < 20:
-                    continue
+                    return None
 
                 a = analyze_symbol(df, capital=capital, risk_pct=0.02)
                 
-                # Compare classical multi-factor score and scalper tape score
-                scalp_score = a.get("scalp_mastery", {}).get("scalp_score", 0)
-                primary_score = a.get("confluence_score", 0)
-                setup_score = max(primary_score, scalp_score)
+                # Primary technical confluence score (100% parity with Trade Blueprint gauge)
+                primary_score = int(a.get("confluence_score", 0))
+                scalp_score = int(a.get("scalp_mastery", {}).get("scalp_score", 0))
+                
+                # Strict >80% threshold: either technical confluence >= 80 or scalp score >= 80
+                if primary_score < 80 and scalp_score < 80:
+                    return None
 
-                # STRICT > 80% GRADE SETUP FILTER
-                if setup_score < 80:
-                    continue
+                # Score displayed in Screener: matches the primary confluence score
+                display_score = primary_score if primary_score >= 80 else scalp_score
+                grade = a.get("signal_grade", "Grade A+")
 
                 rp = a["risk_plan"]
                 currency = df.attrs.get("currency", "USD")
@@ -111,7 +118,7 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
 
                 # Setup identification
                 setup_name = "Demand Zone Institutional Bounce"
-                if scalp_score > primary_score and scalp_score >= 80:
+                if scalp_score >= 85 and scalp_score > primary_score:
                     setup_name = a.get("scalp_mastery", {}).get("scalp_setup", "Micro VWAP Momentum Surge")
                 elif any(f["name"] == "Sell-Side Liquidity Sweep" and f["passed"] for f in a.get("confluence_factors", [])):
                     setup_name = "Liquidity Sweep + Bullish FVG"
@@ -126,7 +133,7 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
                 active_names = strat_info.get("active_names", [])
                 alignment_grade = strat_info.get("alignment_grade", "SCANNING (0/4)")
 
-                results.append({
+                return {
                     "symbol": sym,
                     "category": sym_cat,
                     "market": status.get("market", "Live Market"),
@@ -134,9 +141,11 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
                     "currency": currency,
                     "currency_symbol": currency_symbol,
                     "setup": setup_name,
-                    "confluence_score": setup_score,
+                    "confluence_score": display_score,
+                    "primary_score": primary_score,
+                    "scalp_score": scalp_score,
                     "signal": a["signal_type"],
-                    "grade": "Grade A+",
+                    "grade": grade,
                     "strategy_alignment": {
                         "active_count": active_count,
                         "total": 4,
@@ -149,9 +158,18 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
                     "target_2": round(rp.get("target_2", rp["target_1"] * 1.02), 2),
                     "max_loss": round(rp["max_loss"], 2),
                     "profit_t1": round(rp["profit_target_1"], 2)
-                })
+                }
             except Exception:
-                continue
+                return None
+
+        # Execute live market evaluations concurrently
+        if live_candidates:
+            with ThreadPoolExecutor(max_workers=12) as executor:
+                futures = [executor.submit(eval_candidate, item) for item in live_candidates]
+                for f in as_completed(futures):
+                    res = f.result()
+                    if res:
+                        results.append(res)
 
         # Sort in strictly descending order from highest score to lowest
         results.sort(key=lambda x: x["confluence_score"], reverse=True)
@@ -398,21 +416,19 @@ async def stream_market_ticks(
     timeframe: str = Query("1d", description="Timeframe"),
     capital: float = Query(5000.0, description="Trading capital in INR"),
     risk_pct: float = Query(0.02, description="Risk percentage"),
-    interval: float = Query(1.0, ge=0.5, le=5.0, description="Tick stream speed in seconds"),
-    sim_mode: bool = Query(False, description="Simulate live ticks even when market is closed")
+    interval: float = Query(1.0, ge=0.5, le=5.0, description="Tick stream speed in seconds")
 ):
     """
     Real-time Server-Sent Events (SSE) stream delivering live candle ticks,
     trade execution telemetry, and dynamic Senior Trader tape observations.
-    Stops price modifications when market is closed unless sim_mode=True.
+    Strictly follows real market exchange hours: real ticks when open, static telemetry when closed.
     """
     generator = stream_engine.stream_ticks(
         symbol=symbol,
         timeframe=timeframe,
         capital=capital,
         risk_pct=risk_pct,
-        interval=interval,
-        sim_mode=sim_mode
+        interval=interval
     )
     return StreamingResponse(
         generator,

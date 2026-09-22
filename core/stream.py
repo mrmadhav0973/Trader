@@ -81,19 +81,20 @@ class RealTimeStreamEngine:
 
         return self._states[key]
 
-    def generate_tick(self, state: Dict[str, Any], sim_mode: bool = False) -> Dict[str, Any]:
+    def generate_tick(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Advance price by one realistic tick if market is open or simulation mode is enabled.
-        If market is closed and sim_mode is False, price remains strictly static at official close.
+        Advance price by one realistic tick if market is currently open.
+        If market is closed, price and candle remain strictly static at official close (TradingView parity),
+        while providing planned trade telemetry and market countdown status.
         """
         curr_sym = state.get("currency_symbol", "₹")
         market_status = get_market_status(state["symbol"])
         is_open = market_status.get("is_open", False)
 
         # ---------------------------------------------------------------------
-        # If Market is Closed and Sim Mode is OFF: Freeze Chart (TradingView parity)
+        # If Market is Closed: Freeze Chart at Official Close (TradingView parity)
         # ---------------------------------------------------------------------
-        if not is_open and not sim_mode:
+        if not is_open:
             curr_p = state["base_price"]
             state["current_price"] = curr_p
             state["close"] = curr_p
@@ -114,7 +115,6 @@ class RealTimeStreamEngine:
                 "current_price": curr_p,
                 "change_pct": change_pct,
                 "is_market_open": False,
-                "sim_mode": False,
                 "market_status": market_status,
                 "candle": {
                     "time": state["time"],
@@ -145,7 +145,7 @@ class RealTimeStreamEngine:
             }
 
         # ---------------------------------------------------------------------
-        # Active Tick Generation (Live Market or Practice Simulation Mode)
+        # Active Tick Generation (Live Market)
         # ---------------------------------------------------------------------
         atr = state["atr"]
         curr_p = state["current_price"]
@@ -266,7 +266,6 @@ class RealTimeStreamEngine:
             "current_price": new_price,
             "change_pct": change_pct,
             "is_market_open": is_open,
-            "sim_mode": sim_mode,
             "market_status": market_status,
             "candle": {
                 "time": state["time"],
@@ -302,18 +301,18 @@ class RealTimeStreamEngine:
         timeframe: str = "1d",
         capital: float = 5000.0,
         risk_pct: float = 0.02,
-        interval: float = 1.0,
-        sim_mode: bool = False
+        interval: float = 1.0
     ) -> AsyncGenerator[str, None]:
         """
         Asynchronous generator that yields Server-Sent Events (SSE) data chunks.
-        If market is closed and sim_mode is False, yields static state with 0 price drift.
+        Strictly reflects real market state: generates active ticks when market is open,
+        and static official close with telemetry when market is closed.
         """
         state = self.get_or_create_state(symbol, timeframe, capital, risk_pct)
 
         while True:
             try:
-                tick_data = self.generate_tick(state, sim_mode=sim_mode)
+                tick_data = self.generate_tick(state)
                 # Format as SSE event
                 payload = f"data: {json.dumps(tick_data)}\n\n"
                 yield payload
