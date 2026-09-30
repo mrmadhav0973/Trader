@@ -2,6 +2,7 @@
 Scalping Mastery Engine - High-Frequency Institutional Micro-Trading Module
 Evaluates sub-minute and intraday micro-structure (1m, 3m, 5m, 15m) using
 Session VWAP, 9/21 EMA ribbons, order flow velocity, tape pressure, and tight invalidations.
+Supports BOTH Long Scalps and Short Scalps with exact micro-tick risk management.
 """
 
 from typing import Any
@@ -35,55 +36,89 @@ def analyze_scalp_setup(
     curr_sym = df.attrs.get("currency_symbol", "₹") if hasattr(df, "attrs") else "₹"
 
     has_pin = any("Pin Bar" in p["name"] or "Hammer" in p["name"] for p in candlestick_patterns)
-    has_engulf = any("Engulfing" in p["name"] for p in candlestick_patterns)
-    has_sweep = len(sweeps) > 0
+    has_shooting_star = any("Shooting Star" in p["name"] or "Supply Rejection" in p["name"] for p in candlestick_patterns)
+    has_engulf_bull = any("Bullish Engulfing" in p["name"] for p in candlestick_patterns)
+    has_engulf_bear = any("Bearish Engulfing" in p["name"] for p in candlestick_patterns)
+    
+    has_bull_sweep = any(s.get("type") == "bullish_sweep" for s in sweeps)
+    has_bear_sweep = any(s.get("type") == "bearish_sweep" for s in sweeps)
 
     scalp_score = 40
     factors = []
     archetype = "Micro Range Scalp (Standard Execution)"
     bias = "WATCH"
 
-    # 1. Check Archetype 1: VWAP Bounce / Reclaim
     dist_to_vwap_pct = abs(price - vwap) / vwap
-    if dist_to_vwap_pct <= 0.0025 and (price >= vwap or has_pin):
+
+    # 1. Dual Directional Archetype Matching
+    # Check Short Scalp setups first if price is weak or below VWAP
+    if price < vwap and ema9 < ema21:
+        archetype = "9/21 EMA Bearish Breakdown Flush"
+        scalp_score += 25
+        factors.append("9 EMA leading 21 EMA in downward micro-expansion")
+        bias = "SHORT SCALP"
+    elif dist_to_vwap_pct <= 0.0025 and (price <= vwap or has_shooting_star) and ema9 <= ema21:
+        archetype = "VWAP Dynamic Overhead Rejection"
+        scalp_score += 25
+        factors.append("Price testing & rejecting institutional Session VWAP from below")
+        bias = "SHORT SCALP"
+    elif has_bear_sweep:
+        archetype = "Micro Liquidity Grab Above Highs (Short Scalp)"
+        scalp_score += 25
+        factors.append("Recent swing high swept; retail buy-stops trapped")
+        bias = "SHORT SCALP"
+    elif price >= vwap_up and rsi7 >= 75:
+        archetype = "Upper VWAP Band Mean Reversion Short Fade"
+        scalp_score += 25
+        factors.append("Overbought exhaustion touching +1.5 StdDev VWAP band")
+        bias = "SHORT SCALP"
+    # Bullish Scalp setups
+    elif dist_to_vwap_pct <= 0.0025 and (price >= vwap or has_pin):
         archetype = "VWAP Dynamic Reclaim & Bounce"
         scalp_score += 25
         factors.append("Price testing & holding institutional Session VWAP")
         bias = "LONG SCALP"
     elif price > vwap and ema9 > ema21:
-        # Archetype 2: 9/21 EMA Momentum Burst
         archetype = "9/21 EMA Micro-Trend Momentum Surge"
         scalp_score += 25
         factors.append("9 EMA leading 21 EMA in clean expansion")
         bias = "LONG SCALP"
-    elif has_sweep:
-        # Archetype 3: Session Liquidity Grab
+    elif has_bull_sweep:
         archetype = "Micro Liquidity Sweep & Spring"
         scalp_score += 25
         factors.append("Recent swing low swept for retail stops")
         bias = "LONG SCALP"
     elif price <= vwap_low and rsi7 <= 25:
-        # Archetype 4: Mean Reversion Exhaustion Fade
         archetype = "Lower VWAP Band Mean Reversion Snap"
         scalp_score += 25
         factors.append("Oversold exhaustion touching -1.5 StdDev VWAP band")
         bias = "LONG SCALP"
 
     # 2. Tape Velocity & Delta Pressure Evaluation
-    if buy_pct >= 65.0:
-        scalp_score += 15
-        factors.append(f"Strong Buyer Dominance ({buy_pct:.0f}% Buy Delta)")
-    elif buy_pct <= 35.0:
-        scalp_score -= 10
-        factors.append(f"Seller Pressure Dominant ({100 - buy_pct:.0f}% Sell Delta)")
+    if bias == "SHORT SCALP":
+        if buy_pct <= 35.0:
+            scalp_score += 15
+            factors.append(f"Seller Pressure Dominant ({100 - buy_pct:.0f}% Sell Delta)")
+        elif buy_pct >= 65.0:
+            scalp_score -= 10
+            factors.append(f"Buyers Fighting Trend ({buy_pct:.0f}% Buy Delta)")
+        if has_shooting_star or has_engulf_bear:
+            scalp_score += 10
+            factors.append("Decisive supply rejection candle printed on micro timeframe")
+    else:  # LONG SCALP or WATCH
+        if buy_pct >= 65.0:
+            scalp_score += 15
+            factors.append(f"Strong Buyer Dominance ({buy_pct:.0f}% Buy Delta)")
+        elif buy_pct <= 35.0:
+            scalp_score -= 10
+            factors.append(f"Seller Pressure Dominant ({100 - buy_pct:.0f}% Sell Delta)")
+        if has_pin or has_engulf_bull:
+            scalp_score += 10
+            factors.append("Decisive demand rejection candle printed on micro timeframe")
 
     if vol_vel >= 1.5:
         scalp_score += 15
         factors.append(f"High Volume Velocity ({vol_vel:.1f}x surge)")
-
-    if has_pin or has_engulf:
-        scalp_score += 10
-        factors.append("Decisive rejection candle printed on micro timeframe")
 
     # Score Clamping & Grade
     scalp_score = min(98, max(15, scalp_score))
@@ -97,26 +132,35 @@ def analyze_scalp_setup(
         scalp_grade = "Standby"
         bias = "CHOPPY / NO TRADE"
 
-    # 3. Micro-Stop Loss & Execution Blueprint
-    # For scalping, risk is strictly micro-capped (0.2% to 0.7%)
-    trigger_low = float(last["Low"])
+    # 3. Micro-Stop Loss & Execution Blueprint (Dual-Directional)
     risk_distance = max(micro_atr * 0.8, price * 0.0025)
-    scalp_sl = round(min(trigger_low - (0.2 * micro_atr), price - risk_distance), 2)
-    if scalp_sl >= price or (price - scalp_sl) > (price * 0.008):
-        scalp_sl = round(price * 0.995, 2)  # Strict 0.5% max scalp risk
 
-    actual_risk_per_unit = max(0.01, price - scalp_sl)
-    scalp_t1 = round(price + (1.5 * actual_risk_per_unit), 2)
-    scalp_t2 = round(price + (2.5 * actual_risk_per_unit), 2)
+    if bias == "SHORT SCALP":
+        trigger_high = float(last["High"])
+        scalp_sl = round(max(trigger_high + (0.2 * micro_atr), price + risk_distance), 2)
+        if scalp_sl <= price or (scalp_sl - price) > (price * 0.008):
+            scalp_sl = round(price * 1.005, 2)  # Strict 0.5% max scalp risk
+        actual_risk_per_unit = max(0.01, scalp_sl - price)
+        scalp_t1 = round(price - (1.5 * actual_risk_per_unit), 2)
+        scalp_t2 = round(price - (2.5 * actual_risk_per_unit), 2)
+        t1_pct_val = ((price - scalp_t1) / price) * 100
+    else:
+        trigger_low = float(last["Low"])
+        scalp_sl = round(min(trigger_low - (0.2 * micro_atr), price - risk_distance), 2)
+        if scalp_sl >= price or (price - scalp_sl) > (price * 0.008):
+            scalp_sl = round(price * 0.995, 2)  # Strict 0.5% max scalp risk
+        actual_risk_per_unit = max(0.01, price - scalp_sl)
+        scalp_t1 = round(price + (1.5 * actual_risk_per_unit), 2)
+        scalp_t2 = round(price + (2.5 * actual_risk_per_unit), 2)
+        t1_pct_val = ((scalp_t1 - price) / price) * 100
 
     risk_pct_val = (actual_risk_per_unit / price) * 100
-    t1_pct_val = ((scalp_t1 - price) / price) * 100
 
     # Share sizing for scalping
     max_scalp_risk = capital * risk_pct
     scalp_shares = max(1, int(max_scalp_risk / actual_risk_per_unit)) if actual_risk_per_unit > 0 else 1
 
-    # Scalper Protocol
+    # Scalper Protocol Entry range
     min_entry = round(price * 0.999, 2)
     max_entry = round(price * 1.001, 2)
 
@@ -149,7 +193,7 @@ def analyze_scalp_setup(
             "upper_band": round(vwap_up, 2),
             "lower_band": round(vwap_low, 2),
             "dist_pct": round(dist_to_vwap_pct * 100, 2),
-            "position": "Above VWAP (Bullish Bias)" if price >= vwap else "Below VWAP (Discount Bias)"
+            "position": "Above VWAP (Bullish Bias)" if price >= vwap else "Below VWAP (Discount / Short Bias)"
         },
         "time_horizon": "Expected hold: 3 to 15 minutes",
         "scratch_rule": "Strict Invalidation: If price fails to push into green within 4 candles, exit immediately at breakeven. Never turn a fast scalp into a lingering hope trade."

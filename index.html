@@ -2210,21 +2210,35 @@
       // Signal Badge
       const sigBadge = document.getElementById('signalBadge');
       sigBadge.textContent = data.signal_type;
+      const isShort = (data.trade_direction === 'SHORT' || data.signal_type.includes('SHORT') || data.signal_type.includes('SELL'));
       if (data.signal_type.includes('BUY')) {
         sigBadge.className = 'signal-pill';
+      } else if (isShort) {
+        sigBadge.className = 'signal-pill bear';
       } else if (data.signal_type.includes('WATCH') || data.signal_type.includes('NEUTRAL')) {
         sigBadge.className = 'signal-pill neutral';
       } else {
         sigBadge.className = 'signal-pill bear';
       }
 
-      // Confluence Meter (Original - Unaltered)
+      // Setup subtitle
+      if (document.getElementById('setupSubtitle')) {
+        document.getElementById('setupSubtitle').textContent = isShort 
+          ? 'Intraday / Futures • Short Position (SL Above Supply)' 
+          : 'Swing / Momentum • Long Position (SL Below Demand)';
+      }
+
+      // Confluence Meter (Dual-Directional)
       document.getElementById('gaugeScore').textContent = `${data.confluence_score}%`;
       document.getElementById('gaugeGrade').textContent = `${data.signal_grade} Setup`;
-      document.getElementById('gaugeDesc').textContent = `${data.confluence_score}% of confluence factors aligned`;
+      document.getElementById('gaugeDesc').textContent = isShort
+        ? `${data.confluence_score}% Bearish confluence factors aligned`
+        : `${data.confluence_score}% Bullish confluence factors aligned`;
       
       const gaugeCircle = document.getElementById('gaugeCircle');
-      const scoreColor = data.confluence_score >= 70 ? 'var(--color-bull)' : (data.confluence_score >= 45 ? '#F59E0B' : 'var(--color-bear)');
+      const scoreColor = isShort
+        ? (data.confluence_score >= 70 ? 'var(--color-bear)' : (data.confluence_score >= 45 ? '#F59E0B' : 'var(--text-muted)'))
+        : (data.confluence_score >= 70 ? 'var(--color-bull)' : (data.confluence_score >= 45 ? '#F59E0B' : 'var(--color-bear)'));
       gaugeCircle.style.background = `conic-gradient(${scoreColor} 0% ${data.confluence_score}%, var(--border-subtle) ${data.confluence_score}% 100%)`;
 
       // ⚡ Institutional Strategy Confluence Ring & Matrix
@@ -2314,9 +2328,15 @@
       // Execution Blueprint Metrics
       const rp = data.risk_plan;
       document.getElementById('valEntry').textContent = `${cSym}${rp.entry_price.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-      document.getElementById('valSL').textContent = `${cSym}${rp.stop_loss.toLocaleString('en-US', {minimumFractionDigits: 2})} (-${cSym}${rp.risk_per_share})`;
-      document.getElementById('valT1').textContent = `${cSym}${rp.target_1.toLocaleString('en-US', {minimumFractionDigits: 2})} (+${cSym}${(rp.target_1 - rp.entry_price).toFixed(1)})`;
-      document.getElementById('valT2').textContent = `${cSym}${rp.target_2.toLocaleString('en-US', {minimumFractionDigits: 2})} (+${cSym}${(rp.target_2 - rp.entry_price).toFixed(1)})`;
+      if (isShort) {
+        document.getElementById('valSL').textContent = `${cSym}${rp.stop_loss.toLocaleString('en-US', {minimumFractionDigits: 2})} (+${cSym}${rp.risk_per_share})`;
+        document.getElementById('valT1').textContent = `${cSym}${rp.target_1.toLocaleString('en-US', {minimumFractionDigits: 2})} (-${cSym}${Math.abs(rp.entry_price - rp.target_1).toFixed(1)})`;
+        document.getElementById('valT2').textContent = `${cSym}${rp.target_2.toLocaleString('en-US', {minimumFractionDigits: 2})} (-${cSym}${Math.abs(rp.entry_price - rp.target_2).toFixed(1)})`;
+      } else {
+        document.getElementById('valSL').textContent = `${cSym}${rp.stop_loss.toLocaleString('en-US', {minimumFractionDigits: 2})} (-${cSym}${rp.risk_per_share})`;
+        document.getElementById('valT1').textContent = `${cSym}${rp.target_1.toLocaleString('en-US', {minimumFractionDigits: 2})} (+${cSym}${(rp.target_1 - rp.entry_price).toFixed(1)})`;
+        document.getElementById('valT2').textContent = `${cSym}${rp.target_2.toLocaleString('en-US', {minimumFractionDigits: 2})} (+${cSym}${(rp.target_2 - rp.entry_price).toFixed(1)})`;
+      }
 
       document.getElementById('calcQuantity').textContent = `${rp.quantity} Shares`;
       document.getElementById('calcCapitalUsed').textContent = `${cSym}${rp.capital_deployed.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
@@ -2722,11 +2742,18 @@
           }
         }
 
-        // Dynamic Target Progress Bar
+        // Dynamic Target Progress Bar (Dual-Directional)
         const sl = tt.stop_loss;
         const t1 = tt.target_1;
-        const range = Math.max(1, t1 - sl);
-        const pct = Math.min(100, Math.max(0, ((tick.current_price - sl) / range) * 100));
+        const isShortTrade = (currentAnalysis && (currentAnalysis.trade_direction === 'SHORT' || (currentAnalysis.signal_type && (currentAnalysis.signal_type.includes('SHORT') || currentAnalysis.signal_type.includes('SELL')))));
+        let pct = 35;
+        if (isShortTrade) {
+          const range = Math.max(0.01, sl - t1);
+          pct = Math.min(100, Math.max(0, ((sl - tick.current_price) / range) * 100));
+        } else {
+          const range = Math.max(0.01, t1 - sl);
+          pct = Math.min(100, Math.max(0, ((tick.current_price - sl) / range) * 100));
+        }
         if (document.getElementById('progressBarFill')) {
           document.getElementById('progressBarFill').style.width = `${pct}%`;
           document.getElementById('progressPointer').style.left = `${pct}%`;
@@ -3267,13 +3294,13 @@
                 shape: 'arrowUp',
                 text: 'BUY ENTRY'
               });
-            } else if (currentAnalysis.signal_type.includes('SELL') || currentAnalysis.signal_type.includes('BEAR')) {
+            } else if (currentAnalysis.signal_type.includes('SHORT') || currentAnalysis.signal_type.includes('SELL') || currentAnalysis.signal_type.includes('BEAR')) {
               markers.push({
                 time: lastCandle.time,
                 position: 'aboveBar',
                 color: '#EF4444',
                 shape: 'arrowDown',
-                text: 'SELL / SHORT'
+                text: 'SHORT ENTRY'
               });
             }
           }

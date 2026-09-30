@@ -116,16 +116,28 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
                 currency = df.attrs.get("currency", "USD")
                 currency_symbol = df.attrs.get("currency_symbol", "$")
 
-                # Setup identification
-                setup_name = "Demand Zone Institutional Bounce"
-                if scalp_score >= 85 and scalp_score > primary_score:
-                    setup_name = a.get("scalp_mastery", {}).get("scalp_setup", "Micro VWAP Momentum Surge")
-                elif any(f["name"] == "Sell-Side Liquidity Sweep" and f["passed"] for f in a.get("confluence_factors", [])):
-                    setup_name = "Liquidity Sweep + Bullish FVG"
-                elif any(f["name"] == "Bullish Trend Alignment" and f["passed"] for f in a.get("confluence_factors", [])):
-                    setup_name = "EMA Breakout + Volume Surge"
-                elif any(f["name"] == "RSI Bullish Momentum" and f["passed"] for f in a.get("confluence_factors", [])):
-                    setup_name = "Momentum Continuation"
+                # Setup identification (Dual-Directional)
+                trade_dir = a.get("trade_direction", "LONG")
+                if trade_dir == "SHORT":
+                    setup_name = "Supply Zone Institutional Rejection"
+                    if scalp_score >= 85 and scalp_score > primary_score:
+                        setup_name = a.get("scalp_mastery", {}).get("archetype", "9/21 EMA Bearish Breakdown Flush")
+                    elif any("Buy-Side" in f["name"] or "Buy-side" in f.get("detail", "") for f in a.get("confluence_factors", []) if f["passed"]):
+                        setup_name = "Liquidity Sweep + Bearish FVG"
+                    elif any("Markdown" in f.get("detail", "") or "Distribution" in f.get("detail", "") for f in a.get("confluence_factors", []) if f["passed"]):
+                        setup_name = "Stage 4 Distribution Breakdown"
+                    elif any("Supply" in f["name"] and f["passed"] for f in a.get("confluence_factors", [])):
+                        setup_name = "Institutional Supply Zone Rejection"
+                else:
+                    setup_name = "Demand Zone Institutional Bounce"
+                    if scalp_score >= 85 and scalp_score > primary_score:
+                        setup_name = a.get("scalp_mastery", {}).get("archetype", "Micro VWAP Momentum Surge")
+                    elif any(f["name"] == "Sell-Side Liquidity Sweep" and f["passed"] for f in a.get("confluence_factors", [])):
+                        setup_name = "Liquidity Sweep + Bullish FVG"
+                    elif any(f["name"] == "Bullish Trend Alignment" and f["passed"] for f in a.get("confluence_factors", [])):
+                        setup_name = "EMA Breakout + Volume Surge"
+                    elif any(f["name"] == "RSI Bullish Momentum" and f["passed"] for f in a.get("confluence_factors", [])):
+                        setup_name = "Momentum Continuation"
 
                 sym_cat = status.get("category", get_asset_category(sym))
                 strat_info = a.get("institutional_strategies", {})
@@ -144,6 +156,7 @@ def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", categ
                     "confluence_score": display_score,
                     "primary_score": primary_score,
                     "scalp_score": scalp_score,
+                    "direction": trade_dir,
                     "signal": a["signal_type"],
                     "grade": grade,
                     "strategy_alignment": {
@@ -377,6 +390,9 @@ def get_analysis(
         "current_price": round(analysis["current_price"], 2),
         "atr": round(analysis["atr"], 2),
         "rsi": round(analysis["rsi"], 2),
+        "trade_direction": analysis.get("trade_direction", "LONG"),
+        "bullish_score": analysis.get("bullish_score", 0),
+        "bearish_score": analysis.get("bearish_score", 0),
         "signal_type": analysis["signal_type"],
         "signal_grade": analysis["signal_grade"],
         "confluence_score": analysis["confluence_score"],

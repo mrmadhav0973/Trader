@@ -2,6 +2,7 @@
 AlphaEdge Trader - Real-Time Market Streaming Engine
 Generates live tick-by-tick market data, dynamically updates the active candlestick,
 computes real-time P&L telemetry, and streams institutional tape reading deductions.
+Supports both Long (BUY) and Short (SELL) live position tracking and trailing stops.
 """
 
 import asyncio
@@ -72,6 +73,7 @@ class RealTimeStreamEngine:
                 "profit_t1": rp["profit_target_1"],
                 "profit_t2": rp["profit_target_2"],
                 "signal_type": analysis["signal_type"],
+                "trade_direction": analysis.get("trade_direction", "LONG"),
                 "confluence_score": analysis["confluence_score"],
                 "trade_state": "MONITORING",
                 "be_active": False,
@@ -90,6 +92,7 @@ class RealTimeStreamEngine:
         curr_sym = state.get("currency_symbol", "₹")
         market_status = get_market_status(state["symbol"])
         is_open = market_status.get("is_open", False)
+        is_short = "SHORT" in state["signal_type"] or "SELL" in state["signal_type"]
 
         # ---------------------------------------------------------------------
         # If Market is Closed: Freeze Chart at Official Close (TradingView parity)
@@ -106,6 +109,10 @@ class RealTimeStreamEngine:
                 )
 
             change_pct = round(((curr_p - state["open"]) / state["open"]) * 100.0, 2)
+            dist_entry = round(((state["entry_price"] - curr_p) / state["entry_price"]) * 100.0, 2) if is_short else round(((curr_p - state["entry_price"]) / state["entry_price"]) * 100.0, 2)
+            dist_t1 = round(((curr_p - state["target_1"]) / curr_p) * 100.0, 2) if is_short else round(((state["target_1"] - curr_p) / curr_p) * 100.0, 2)
+            dist_sl = round(((state["stop_loss"] - curr_p) / curr_p) * 100.0, 2) if is_short else round(((curr_p - state["stop_loss"]) / curr_p) * 100.0, 2)
+
             return {
                 "type": "tick",
                 "symbol": state["symbol"],
@@ -135,9 +142,9 @@ class RealTimeStreamEngine:
                     "unrealized_pnl": 0.0,
                     "unrealized_pnl_inr": 0.0,
                     "unrealized_pnl_pct": 0.0,
-                    "dist_entry_pct": round(((curr_p - state["entry_price"]) / state["entry_price"]) * 100.0, 2),
-                    "dist_t1_pct": round(((state["target_1"] - curr_p) / curr_p) * 100.0, 2),
-                    "dist_sl_pct": round(((curr_p - state["stop_loss"]) / curr_p) * 100.0, 2),
+                    "dist_entry_pct": dist_entry,
+                    "dist_t1_pct": dist_t1,
+                    "dist_sl_pct": dist_sl,
                     "be_active": False
                 },
                 "tape_history": state["tape_history"][:5],
@@ -156,7 +163,7 @@ class RealTimeStreamEngine:
         
         # Slight drift bias depending on setup signal
         signal = state["signal_type"]
-        bias = 0.05 if "BUY" in signal else (-0.05 if "SELL" in signal else 0.0)
+        bias = -0.06 if is_short else (0.06 if "BUY" in signal else 0.0)
         
         direction = 1 if (random.random() + bias) > 0.5 else -1
         delta = round(direction * tick_magnitude, 2)
@@ -172,7 +179,7 @@ class RealTimeStreamEngine:
         tick_vol = int(random.randint(150, 2500) * (2.5 if abs(delta) > tick_magnitude else 1.0))
         state["volume"] += tick_vol
 
-        # Trade Execution & P&L Telemetry
+        # Trade Execution & P&L Telemetry (Dual-Directional)
         entry = state["entry_price"]
         sl = state["stop_loss"]
         t1 = state["target_1"]
@@ -184,70 +191,121 @@ class RealTimeStreamEngine:
         trade_state = state["trade_state"]
         be_active = state["be_active"]
 
-        # Check entry trigger (within 0.15% of entry)
-        if trade_state == "MONITORING":
-            if abs(new_price - entry) / entry <= 0.002 or new_price >= entry:
-                trade_state = "ACTIVE / IN POSITION"
+        if not is_short:
+            # LONG TRADE EXECUTION & TELEMETRY
+            if trade_state == "MONITORING":
+                if abs(new_price - entry) / entry <= 0.002 or new_price >= entry:
+                    trade_state = "ACTIVE / IN POSITION"
+                    state["trade_state"] = trade_state
+                    state["tape_history"].insert(0, f"🎯 Planned Long Entry reached at {curr_sym}{new_price:.2f}! Position initiated: {qty} shares.")
+
+            # Check Target 1 hit
+            if new_price >= t1 and not be_active and "BUY" in signal:
+                trade_state = "TARGET 1 HIT (50% LOCKED)"
                 state["trade_state"] = trade_state
-                state["tape_history"].insert(0, f"🎯 Planned Entry reached at {curr_sym}{new_price:.2f}! Position initiated: {qty} shares.")
+                state["be_active"] = True
+                state["stop_loss"] = entry
+                state["tape_history"].insert(0, f"🏆 Target 1 Achieved at {curr_sym}{new_price:.2f}! 50% profit booked (+{curr_sym}{state['profit_t1']:.2f}). Stop loss moved to Breakeven {curr_sym}{entry:.2f} (Risk-free trade).")
 
-        # Check Target 1 hit
-        if new_price >= t1 and not be_active and "BUY" in signal:
-            trade_state = "TARGET 1 HIT (50% LOCKED)"
-            state["trade_state"] = trade_state
-            state["be_active"] = True
-            # Senior trader protocol: Move SL to Breakeven
-            state["stop_loss"] = entry
-            state["tape_history"].insert(0, f"🏆 Target 1 Achieved at {curr_sym}{new_price:.2f}! 50% profit booked (+{curr_sym}{state['profit_t1']:.2f}). Stop loss moved to Breakeven {curr_sym}{entry:.2f} (Risk-free trade).")
+            # Check Target 2 hit
+            if new_price >= t2 and "BUY" in signal:
+                trade_state = "TARGET 2 HIT (FULL EXIT)"
+                state["trade_state"] = trade_state
+                state["tape_history"].insert(0, f"🚀 Target 2 Achieved at {curr_sym}{new_price:.2f}! Full position closed (+{curr_sym}{state['profit_t2']:.2f}). Maximum edge extracted.")
 
-        # Check Target 2 hit
-        if new_price >= t2 and "BUY" in signal:
-            trade_state = "TARGET 2 HIT (FULL EXIT)"
-            state["trade_state"] = trade_state
-            state["tape_history"].insert(0, f"🚀 Target 2 Achieved at {curr_sym}{new_price:.2f}! Full position closed (+{curr_sym}{state['profit_t2']:.2f}). Maximum edge extracted.")
+            # Check Stop Loss hit
+            if new_price <= state["stop_loss"] and "BUY" in signal:
+                if state["be_active"]:
+                    trade_state = "STOPPED AT BREAKEVEN"
+                    state["tape_history"].insert(0, f"🛡️ Runner stopped at Breakeven {curr_sym}{state['stop_loss']:.2f}. Initial profit preserved; zero capital loss.")
+                else:
+                    trade_state = "STOP LOSS HIT (EXIT)"
+                    state["tape_history"].insert(0, f"🛑 Stop Loss hit at {curr_sym}{new_price:.2f}. Capital protection rule engaged: Max loss capped at -{curr_sym}{state['max_loss']:.2f}.")
+                state["trade_state"] = trade_state
 
-        # Check Stop Loss hit
-        if new_price <= state["stop_loss"] and "BUY" in signal:
-            if state["be_active"]:
-                trade_state = "STOPPED AT BREAKEVEN"
-                state["tape_history"].insert(0, f"🛡️ Runner stopped at Breakeven {curr_sym}{state['stop_loss']:.2f}. Initial profit preserved; zero capital loss.")
+            # Calculate live Unrealized P&L
+            if trade_state in ["ACTIVE / IN POSITION", "TARGET 1 HIT (50% LOCKED)"]:
+                unrealized_pnl = (new_price - entry) * qty
+                unrealized_pct = ((new_price - entry) / entry) * 100.0
+                status_color = "#10B981" if unrealized_pnl >= 0 else "#EF4444"
+            elif trade_state == "TARGET 2 HIT (FULL EXIT)":
+                unrealized_pnl = state["profit_t2"]
+                unrealized_pct = (state["profit_t2"] / capital) * 100.0
+                status_color = "#10B981"
+            elif trade_state in ["STOP LOSS HIT (EXIT)", "STOPPED AT BREAKEVEN"]:
+                unrealized_pnl = 0.0 if trade_state == "STOPPED AT BREAKEVEN" else -state["max_loss"]
+                unrealized_pct = (unrealized_pnl / capital) * 100.0
+                status_color = "#F59E0B" if trade_state == "STOPPED AT BREAKEVEN" else "#EF4444"
             else:
-                trade_state = "STOP LOSS HIT (EXIT)"
-                state["tape_history"].insert(0, f"🛑 Stop Loss hit at {curr_sym}{new_price:.2f}. Capital protection rule engaged: Max loss capped at -{curr_sym}{state['max_loss']:.2f}.")
-            state["trade_state"] = trade_state
+                unrealized_pnl = 0.0
+                unrealized_pct = 0.0
+                status_color = "#3B82F6"
 
-        # Calculate live Unrealized P&L
-        if trade_state in ["ACTIVE / IN POSITION", "TARGET 1 HIT (50% LOCKED)"]:
-            unrealized_pnl = (new_price - entry) * qty
-            unrealized_pct = ((new_price - entry) / entry) * 100.0
-            status_color = "#10B981" if unrealized_pnl >= 0 else "#EF4444"
-        elif trade_state == "TARGET 2 HIT (FULL EXIT)":
-            unrealized_pnl = state["profit_t2"]
-            unrealized_pct = (state["profit_t2"] / capital) * 100.0
-            status_color = "#10B981"
-        elif trade_state in ["STOP LOSS HIT (EXIT)", "STOPPED AT BREAKEVEN"]:
-            unrealized_pnl = 0.0 if trade_state == "STOPPED AT BREAKEVEN" else -state["max_loss"]
-            unrealized_pct = (unrealized_pnl / capital) * 100.0
-            status_color = "#F59E0B" if trade_state == "STOPPED AT BREAKEVEN" else "#EF4444"
+            dist_entry_pct = round(((new_price - entry) / entry) * 100.0, 2)
+            dist_t1_pct = round(((t1 - new_price) / new_price) * 100.0, 2)
+            dist_sl_pct = round(((new_price - state['stop_loss']) / new_price) * 100.0, 2)
         else:
-            # Monitoring
-            unrealized_pnl = 0.0
-            unrealized_pct = 0.0
-            status_color = "#3B82F6"
+            # SHORT TRADE EXECUTION & TELEMETRY
+            if trade_state == "MONITORING":
+                if abs(new_price - entry) / entry <= 0.002 or new_price <= entry:
+                    trade_state = "ACTIVE / IN POSITION"
+                    state["trade_state"] = trade_state
+                    state["tape_history"].insert(0, f"🎯 Planned Short Entry triggered at {curr_sym}{new_price:.2f}! Short position initiated: {qty} shares.")
 
-        # Distances
-        dist_entry_pct = round(((new_price - entry) / entry) * 100.0, 2)
-        dist_t1_pct = round(((t1 - new_price) / new_price) * 100.0, 2)
-        dist_sl_pct = round(((new_price - state['stop_loss']) / new_price) * 100.0, 2)
+            # Check Target 1 hit (for Short, price drops to target 1)
+            if new_price <= t1 and not be_active:
+                trade_state = "TARGET 1 HIT (50% LOCKED)"
+                state["trade_state"] = trade_state
+                state["be_active"] = True
+                state["stop_loss"] = entry
+                state["tape_history"].insert(0, f"🏆 Target 1 Achieved at {curr_sym}{new_price:.2f}! 50% profit booked on Short (+{curr_sym}{state['profit_t1']:.2f}). Stop loss trailed down to Breakeven {curr_sym}{entry:.2f} (Risk-free trade).")
+
+            # Check Target 2 hit (for Short, price drops to target 2)
+            if new_price <= t2:
+                trade_state = "TARGET 2 HIT (FULL EXIT)"
+                state["trade_state"] = trade_state
+                state["tape_history"].insert(0, f"🚀 Target 2 Achieved at {curr_sym}{new_price:.2f}! Full short position covered (+{curr_sym}{state['profit_t2']:.2f}). Maximum short edge extracted.")
+
+            # Check Stop Loss hit (for Short, price rises to stop loss)
+            if new_price >= state["stop_loss"]:
+                if state["be_active"]:
+                    trade_state = "STOPPED AT BREAKEVEN"
+                    state["tape_history"].insert(0, f"🛡️ Short runner covered at Breakeven {curr_sym}{state['stop_loss']:.2f}. Initial profit preserved; zero capital loss.")
+                else:
+                    trade_state = "STOP LOSS HIT (EXIT)"
+                    state["tape_history"].insert(0, f"🛑 Stop Loss hit on Short at {curr_sym}{new_price:.2f}. Capital protection rule engaged: Max loss capped at -{curr_sym}{state['max_loss']:.2f}.")
+                state["trade_state"] = trade_state
+
+            # Calculate live Unrealized P&L for Short (profit when price falls)
+            if trade_state in ["ACTIVE / IN POSITION", "TARGET 1 HIT (50% LOCKED)"]:
+                unrealized_pnl = (entry - new_price) * qty
+                unrealized_pct = ((entry - new_price) / entry) * 100.0
+                status_color = "#10B981" if unrealized_pnl >= 0 else "#EF4444"
+            elif trade_state == "TARGET 2 HIT (FULL EXIT)":
+                unrealized_pnl = state["profit_t2"]
+                unrealized_pct = (state["profit_t2"] / capital) * 100.0
+                status_color = "#10B981"
+            elif trade_state in ["STOP LOSS HIT (EXIT)", "STOPPED AT BREAKEVEN"]:
+                unrealized_pnl = 0.0 if trade_state == "STOPPED AT BREAKEVEN" else -state["max_loss"]
+                unrealized_pct = (unrealized_pnl / capital) * 100.0
+                status_color = "#F59E0B" if trade_state == "STOPPED AT BREAKEVEN" else "#EF4444"
+            else:
+                unrealized_pnl = 0.0
+                unrealized_pct = 0.0
+                status_color = "#3B82F6"
+
+            dist_entry_pct = round(((entry - new_price) / entry) * 100.0, 2)
+            dist_t1_pct = round(((new_price - t1) / new_price) * 100.0, 2)
+            dist_sl_pct = round(((state['stop_loss'] - new_price) / new_price) * 100.0, 2)
 
         # Senior Trader dynamic tape observation on intervals
         if state["ticks_count"] % 6 == 0:
             comments = [
                 f"Tick analysis: Institutional absorption taking place around {curr_sym}{new_price:.2f}.",
-                f"Volume pulse: {tick_vol:,} shares executed on this tick; bid depth holding solid.",
-                f"Market structure: Price testing dynamic 20 EMA cushion; order flow favoring {'buyers' if delta > 0 else 'sellers'}.",
-                f"Senior observation: Retails attempting to fade momentum; institutional passive limits stacked below.",
-                f"Tape observation: Spread tightened to {curr_sym}{round(new_price * 0.0005, 2):.2f}; volatility contraction preceding next expansion wave."
+                f"Volume pulse: {tick_vol:,} shares executed on this tick; {'bid depth solid' if not is_short else 'ask wall heavy'}.",
+                f"Market structure: Price interacting with dynamic 20 EMA; order flow favoring {'buyers' if delta > 0 else 'sellers'}.",
+                f"Senior observation: {'Retail stop hunt underway' if not is_short else 'Late buyers trapped into supply'}; institutional edge active.",
+                f"Tape observation: Volatility contraction preceding next expansion wave."
             ]
             state["tape_history"].insert(0, random.choice(comments))
 
