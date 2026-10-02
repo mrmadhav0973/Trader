@@ -1603,6 +1603,7 @@
         </div>
 
         <div id="tvChartContainer"></div>
+        <canvas id="tvZonesCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
       </div>
 
       <!-- RSI Oscillator Subplot -->
@@ -2909,32 +2910,29 @@
         wickDownColor: '#EF4444',
       });
 
-      // 20 EMA Line
+      // 20 EMA Line (Clean - no axis or edge text)
       tvEma20Series = tvChart.addLineSeries({
         color: '#3B82F6',
         lineWidth: 2,
-        title: 'EMA 20',
         priceLineVisible: false,
         lastValueVisible: false,
       });
 
-      // 50 EMA Line
+      // 50 EMA Line (Clean - no axis or edge text)
       tvEma50Series = tvChart.addLineSeries({
         color: '#F59E0B',
         lineWidth: 1.5,
         lineStyle: LightweightCharts.LineStyle.Dashed,
-        title: 'EMA 50',
         priceLineVisible: false,
         lastValueVisible: false,
       });
 
-      // Session VWAP Line (Purple)
+      // Session VWAP Line (Clean - no axis or edge text)
       tvVwapSeries = tvChart.addLineSeries({
         color: '#A855F7',
         lineWidth: 2,
-        title: 'VWAP',
         priceLineVisible: false,
-        lastValueVisible: true,
+        lastValueVisible: false,
       });
 
       // VWAP Upper Band (+1.5 StdDev)
@@ -2942,7 +2940,6 @@
         color: 'rgba(168, 85, 247, 0.45)',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Dotted,
-        title: 'VWAP +1.5σ',
         priceLineVisible: false,
         lastValueVisible: false,
       });
@@ -2952,12 +2949,11 @@
         color: 'rgba(168, 85, 247, 0.45)',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Dotted,
-        title: 'VWAP -1.5σ',
         priceLineVisible: false,
         lastValueVisible: false,
       });
 
-      // Crosshair HUD hover listener
+      // Crosshair HUD hover listener and S/R Zone sync
       tvChart.subscribeCrosshairMove(param => {
         if (!currentAnalysis || !currentAnalysis.candles) return;
         const lastCandle = currentAnalysis.candles[currentAnalysis.candles.length - 1];
@@ -2973,6 +2969,23 @@
         }
       });
 
+      // Subscribe to time scale changes to keep S/R zone bands aligned with zoom & pan
+      try {
+        tvChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+          renderZonesOverlay();
+        });
+        tvChart.timeScale().subscribeVisibleTimeRangeChange(() => {
+          renderZonesOverlay();
+        });
+      } catch (e) {}
+
+      // Mouse drag and wheel listeners on chart container to smoothly redraw S/R zone boxes
+      container.addEventListener('mousemove', (e) => {
+        if (e.buttons > 0) renderZonesOverlay();
+      });
+      container.addEventListener('mouseup', () => renderZonesOverlay());
+      container.addEventListener('wheel', () => setTimeout(renderZonesOverlay, 16), { passive: true });
+
       // Responsive auto-resize observer
       if (window.ResizeObserver) {
         tvResizeObserver = new ResizeObserver(entries => {
@@ -2980,6 +2993,7 @@
           const rect = entries[0].contentRect;
           if (tvChart && rect.width > 0 && rect.height > 0) {
             tvChart.applyOptions({ width: rect.width, height: rect.height });
+            renderZonesOverlay();
           }
         });
         tvResizeObserver.observe(container);
@@ -3009,6 +3023,137 @@
         chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
         chgEl.style.color = chg >= 0 ? 'var(--color-bull)' : 'var(--color-bear)';
       }
+    }
+
+    // TradingView-Style Human S/R Zones Canvas Overlay Engine
+    function renderZonesOverlay() {
+      const canvas = document.getElementById('tvZonesCanvas');
+      const container = document.getElementById('tvChartContainer');
+      if (!canvas || !container) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const chkZones = document.getElementById('chkZones');
+      const showZones = chkZones ? chkZones.checked : true;
+
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      const dpr = window.devicePixelRatio || 1;
+
+      if (width === 0 || height === 0) return;
+
+      if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      if (!showZones || !currentAnalysis || !currentAnalysis.sr_zones || !tvCandleSeries || currentAnalysis.sr_zones.length === 0) {
+        return;
+      }
+
+      const cSym = getCurrencySymbol();
+      // Plot width excludes the right vertical price scale (leaving strictly ENTRY, SL, TP, Live Price on axis)
+      const chartPlotWidth = Math.max(0, width - 68);
+
+      currentAnalysis.sr_zones.forEach(z => {
+        if (!z || isNaN(z.min_price) || isNaN(z.max_price)) return;
+
+        let yMin = tvCandleSeries.priceToCoordinate(z.min_price);
+        let yMax = tvCandleSeries.priceToCoordinate(z.max_price);
+
+        if (yMin === null && yMax === null) {
+          const yMid = tvCandleSeries.priceToCoordinate(z.mid_price);
+          if (yMid !== null) {
+            yMin = yMid + 8;
+            yMax = yMid - 8;
+          } else {
+            return;
+          }
+        }
+
+        if (yMax === null) yMax = -30;
+        if (yMin === null) yMin = height + 30;
+
+        let topY = Math.min(yMin, yMax);
+        let bottomY = Math.max(yMin, yMax);
+
+        // Ensure minimum zone band thickness (at least 10px) so even tight wicks display as a clear shaded box
+        if ((bottomY - topY) < 10) {
+          const mid = (topY + bottomY) / 2;
+          topY = mid - 5;
+          bottomY = mid + 5;
+        }
+
+        // Skip zones completely outside the viewport
+        if (bottomY < -20 || topY > height + 20) return;
+
+        const isSupport = z.type === 'support';
+        const isImm = !!z.is_immediate;
+        const isMajor = z.strength === 'MAJOR';
+
+        // 1. Shaded Rectangular Zone Box / Band
+        ctx.fillStyle = isSupport
+          ? (isImm ? 'rgba(16, 185, 129, 0.16)' : (isMajor ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)'))
+          : (isImm ? 'rgba(239, 68, 68, 0.16)' : (isMajor ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)'));
+        ctx.fillRect(0, topY, chartPlotWidth, bottomY - topY);
+
+        // 2. Subtle Dashed Zone Boundary Lines
+        ctx.strokeStyle = isSupport
+          ? (isImm ? 'rgba(16, 185, 129, 0.65)' : 'rgba(16, 185, 129, 0.35)')
+          : (isImm ? 'rgba(239, 68, 68, 0.65)' : 'rgba(239, 68, 68, 0.35)');
+        ctx.lineWidth = isImm ? 1.5 : 1;
+        ctx.setLineDash([4, 4]);
+
+        ctx.beginPath();
+        ctx.moveTo(0, topY);
+        ctx.lineTo(chartPlotWidth, topY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, bottomY);
+        ctx.lineTo(chartPlotWidth, bottomY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 3. Human-Grade TradingView In-Zone Text Badge
+        const touchesText = z.touches ? `${z.touches}x` : '';
+        const badgeText = `${isSupport ? '🟢 DEMAND' : '🔴 SUPPLY'} ZONE • ${touchesText} [${cSym}${Number(z.min_price).toFixed(1)} - ${cSym}${Number(z.max_price).toFixed(1)}] ${isImm ? '★ IMMEDIATE' : ''}`;
+
+        ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+        const textMetrics = ctx.measureText(badgeText);
+        const textWidth = textMetrics.width;
+        const badgePaddingX = 6;
+        const badgeHeight = 16;
+        const zoneH = bottomY - topY;
+        let badgeY = Math.max(topY + 2, Math.min(topY + (zoneH - badgeHeight) / 2, height - badgeHeight - 4));
+        if (topY <= 0 && bottomY >= 20) badgeY = 6;
+        else if (bottomY >= height && topY <= height - 20) badgeY = height - badgeHeight - 6;
+        const badgeX = 14;
+
+        // Badge pill background
+        ctx.fillStyle = isSupport ? 'rgba(6, 78, 59, 0.85)' : 'rgba(127, 29, 29, 0.85)';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(badgeX, badgeY, textWidth + badgePaddingX * 2, badgeHeight, 3);
+        } else {
+          ctx.rect(badgeX, badgeY, textWidth + badgePaddingX * 2, badgeHeight);
+        }
+        ctx.fill();
+
+        // Badge pill border
+        ctx.strokeStyle = isSupport ? 'rgba(52, 211, 153, 0.9)' : 'rgba(248, 113, 113, 0.9)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Badge text
+        ctx.fillStyle = isSupport ? '#A7F3D0' : '#FECACA';
+        ctx.fillText(badgeText, badgeX + badgePaddingX, badgeY + 11.5);
+      });
     }
 
     function drawChart() {
@@ -3151,7 +3296,7 @@
           console.warn('VWAP layer error:', e);
         }
 
-        // 4. Trade Blueprint Price Lines
+        // 4. Trade Blueprint Price Lines (Clean Vertical Price Axis: Strictly ENTRY, SL, TP, Live Price)
         try {
           if (tvPriceLines && tvPriceLines.length > 0) {
             tvPriceLines.forEach(pl => {
@@ -3162,6 +3307,7 @@
 
           const rp = currentAnalysis.risk_plan;
           if (rp && rp.entry_price > 0) {
+            // 1. ENTRY (Vertical axis text: ENTRY)
             tvPriceLines.push(tvCandleSeries.createPriceLine({
               price: rp.entry_price,
               color: '#3B82F6',
@@ -3171,7 +3317,7 @@
               title: 'ENTRY',
             }));
 
-            const cSym = getCurrencySymbol();
+            // 2. STOP LOSS (Vertical axis text: SL)
             if (rp.stop_loss > 0) {
               tvPriceLines.push(tvCandleSeries.createPriceLine({
                 price: rp.stop_loss,
@@ -3179,10 +3325,11 @@
                 lineWidth: 2,
                 lineStyle: LightweightCharts.LineStyle.Dashed,
                 axisLabelVisible: true,
-                title: `SL (-${cSym}${rp.max_loss})`,
+                title: 'SL',
               }));
             }
 
+            // 3. TARGET 1 / TAKE PROFIT (Vertical axis text: TP)
             if (rp.target_1 > 0) {
               tvPriceLines.push(tvCandleSeries.createPriceLine({
                 price: rp.target_1,
@@ -3190,18 +3337,19 @@
                 lineWidth: 2,
                 lineStyle: LightweightCharts.LineStyle.Dashed,
                 axisLabelVisible: true,
-                title: `T1 (+${cSym}${rp.profit_target_1})`,
+                title: 'TP',
               }));
             }
 
+            // Target 2 / Runner (Dotted line on chart canvas only; axisLabelVisible: false to prevent axis clutter)
             if (rp.target_2 > 0) {
               tvPriceLines.push(tvCandleSeries.createPriceLine({
                 price: rp.target_2,
                 color: '#059669',
                 lineWidth: 1.5,
                 lineStyle: LightweightCharts.LineStyle.Dotted,
-                axisLabelVisible: true,
-                title: `T2 (+${cSym}${rp.profit_target_2})`,
+                axisLabelVisible: false,
+                title: 'T2',
               }));
             }
           }
@@ -3209,27 +3357,12 @@
           console.warn('Price lines error:', e);
         }
 
-        // 5. Support & Resistance Levels
+        // 5. Support & Resistance Levels (TradingView-Style Shaded Rectangular Zones Canvas Overlay)
         try {
-          const showZones = document.getElementById('chkZones').checked;
-          if (showZones && currentAnalysis.sr_zones) {
-            const cSym = getCurrencySymbol();
-            currentAnalysis.sr_zones.forEach(z => {
-              if (z && !isNaN(z.mid_price) && z.mid_price > 0) {
-                const isSup = z.type === 'support';
-                tvPriceLines.push(tvCandleSeries.createPriceLine({
-                  price: z.mid_price,
-                  color: isSup ? 'rgba(16, 185, 129, 0.65)' : 'rgba(239, 68, 68, 0.65)',
-                  lineWidth: 1,
-                  lineStyle: LightweightCharts.LineStyle.SparseDotted,
-                  axisLabelVisible: true,
-                  title: `${isSup ? 'DEMAND' : 'SUPPLY'} (${cSym}${z.mid_price.toFixed(1)})`,
-                }));
-              }
-            });
-          }
+          requestAnimationFrame(() => renderZonesOverlay());
+          setTimeout(() => renderZonesOverlay(), 60);
         } catch (e) {
-          console.warn('S/R zones error:', e);
+          console.warn('S/R zones overlay render error:', e);
         }
 
         // 6. Trendlines
@@ -3253,7 +3386,6 @@
                 lineStyle: LightweightCharts.LineStyle.Dashed,
                 priceLineVisible: false,
                 lastValueVisible: false,
-                title: 'SUPPORT TRENDLINE',
               });
               tvSupportTrendline.setData([
                 { time: supp.start_time, value: supp.start_price },
@@ -3269,7 +3401,6 @@
                 lineStyle: LightweightCharts.LineStyle.Dashed,
                 priceLineVisible: false,
                 lastValueVisible: false,
-                title: 'RESISTANCE TRENDLINE',
               });
               tvResistanceTrendline.setData([
                 { time: resi.start_time, value: resi.start_price },
@@ -3292,7 +3423,7 @@
                 position: 'belowBar',
                 color: '#10B981',
                 shape: 'arrowUp',
-                text: 'BUY ENTRY'
+                text: 'BUY'
               });
             } else if (currentAnalysis.signal_type.includes('SHORT') || currentAnalysis.signal_type.includes('SELL') || currentAnalysis.signal_type.includes('BEAR')) {
               markers.push({
@@ -3300,7 +3431,7 @@
                 position: 'aboveBar',
                 color: '#EF4444',
                 shape: 'arrowDown',
-                text: 'SHORT ENTRY'
+                text: 'SELL'
               });
             }
           }
@@ -3347,6 +3478,10 @@
         } catch (e) {
           console.warn('RSI error:', e);
         }
+
+        // Trigger S/R zones overlay render after layout completes
+        requestAnimationFrame(() => renderZonesOverlay());
+        setTimeout(() => renderZonesOverlay(), 80);
       } catch (fatalErr) {
         console.error('Fatal error rendering TradingView chart:', fatalErr);
       }
@@ -3387,7 +3522,10 @@
 
     // TradingView Toolbar Helper Functions
     function fitChartContent() {
-      if (tvChart) tvChart.timeScale().fitContent();
+      if (tvChart) {
+        tvChart.timeScale().fitContent();
+        setTimeout(renderZonesOverlay, 60);
+      }
     }
 
     function zoomInChart() {
@@ -3399,6 +3537,7 @@
             from: range.from + delta,
             to: range.to - delta
           });
+          setTimeout(renderZonesOverlay, 60);
         }
       }
     }
@@ -3412,6 +3551,7 @@
             from: range.from - delta,
             to: range.to + delta
           });
+          setTimeout(renderZonesOverlay, 60);
         }
       }
     }
@@ -3426,6 +3566,7 @@
           const container = document.getElementById('tvChartContainer');
           tvChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
           tvChart.timeScale().fitContent();
+          setTimeout(renderZonesOverlay, 60);
         }
       }, 100);
     }

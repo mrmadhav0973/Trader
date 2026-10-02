@@ -233,51 +233,188 @@ def calculate_algorithmic_trendlines(
 
 def cluster_support_resistance_zones(
     df: pd.DataFrame,
-    swing_highs: list[dict],
-    swing_lows: list[dict],
-    threshold_pct: float = 0.015
+    swing_highs: list[dict] = None,
+    swing_lows: list[dict] = None,
+    threshold_pct: float = 0.015,
+    max_zones: int = 12
 ) -> list[dict[str, Any]]:
-    """Cluster swing highs and lows into horizontal demand/supply zones."""
+    """
+    Cluster price action into human-grade Support & Resistance (Demand & Supply) zones,
+    mimicking expert technical analysts on TradingView.
+
+    Generates multi-tiered shaded zones across the chart:
+    - Immediate Demand & Supply (closest reaction levels)
+    - Major Institutional Base & Distribution zones
+    - Polarity / S-R flip zones
+    - Structural swing clusters
+
+    Each zone includes min_price, max_price, mid_price, touches, strength rating,
+    and human-readable TradingView labels.
+    """
+    if df is None or len(df) < 5:
+        return []
+
     current_price = float(df["Close"].iloc[-1])
-    all_points = [(p["price"], "high") for p in swing_highs] + \
-                 [(p["price"], "low") for p in swing_lows]
+    highs = df["High"].values
+    lows = df["Low"].values
+    closes = df["Close"].values
+    n = len(df)
+
+    # 1. Calibrate zone height and clustering threshold using ATR
+    tr = np.maximum(
+        highs[1:] - lows[1:],
+        np.maximum(abs(highs[1:] - closes[:-1]), abs(lows[1:] - closes[:-1]))
+    ) if n > 1 else np.array([current_price * 0.02])
+    atr = float(np.mean(tr[-14:])) if len(tr) >= 14 else float(current_price * 0.02)
+    if atr <= 0 or np.isnan(atr):
+        atr = float(current_price * 0.015)
+
+    # Realistic human-drawn zone height and clustering tolerances
+    zone_band_height = max(current_price * 0.004, atr * 0.35)
+    cluster_threshold = max(current_price * 0.012, atr * 0.65)
+
+    # 2. Extract multi-scale swing fractals (windows 2, 4, 8)
+    all_points = []
+    for w, weight in [(2, 1), (4, 2), (8, 3)]:
+        if n > 2 * w:
+            for i in range(w, n - w):
+                if all(highs[i] >= highs[i - j] for j in range(1, w + 1)) and all(highs[i] >= highs[i + j] for j in range(1, w + 1)):
+                    all_points.append({"price": float(highs[i]), "type": "high", "weight": weight, "bar": i})
+                if all(lows[i] <= lows[i - j] for j in range(1, w + 1)) and all(lows[i] <= lows[i + j] for j in range(1, w + 1)):
+                    all_points.append({"price": float(lows[i]), "type": "low", "weight": weight, "bar": i})
+
+    # Include external swing points if provided
+    if swing_highs:
+        for p in swing_highs:
+            all_points.append({"price": float(p["price"]), "type": "high", "weight": 2, "bar": p.get("bar_index", 0)})
+    if swing_lows:
+        for p in swing_lows:
+            all_points.append({"price": float(p["price"]), "type": "low", "weight": 2, "bar": p.get("bar_index", 0)})
 
     if not all_points:
         return []
 
-    all_points.sort(key=lambda x: x[0])
-    zones = []
-    cluster = [all_points[0]]
+    # Sort all points by price
+    all_points.sort(key=lambda x: x["price"])
 
-    for i in range(1, len(all_points)):
-        price, point_type = all_points[i]
-        prev_avg = np.mean([p[0] for p in cluster])
+    # 3. Cluster points into contiguous price levels
+    clusters = []
+    curr_cluster = [all_points[0]]
 
-        if abs(price - prev_avg) / prev_avg <= threshold_pct:
-            cluster.append(all_points[i])
+    for pt in all_points[1:]:
+        prev_center = np.mean([p["price"] for p in curr_cluster])
+        if abs(pt["price"] - prev_center) <= cluster_threshold:
+            curr_cluster.append(pt)
         else:
-            if len(cluster) >= 2:
-                cluster_prices = [p[0] for p in cluster]
-                zone_type = "support" if np.mean(cluster_prices) < current_price else "resistance"
-                zones.append({
-                    "type": zone_type,
-                    "min_price": float(min(cluster_prices)),
-                    "max_price": float(max(cluster_prices)),
-                    "mid_price": float(np.mean(cluster_prices)),
-                    "touches": len(cluster)
-                })
-            cluster = [all_points[i]]
+            clusters.append(curr_cluster)
+            curr_cluster = [pt]
+    if curr_cluster:
+        clusters.append(curr_cluster)
 
-    if len(cluster) >= 2:
-        cluster_prices = [p[0] for p in cluster]
-        zone_type = "support" if np.mean(cluster_prices) < current_price else "resistance"
-        zones.append({
-            "type": zone_type,
-            "min_price": float(min(cluster_prices)),
-            "max_price": float(max(cluster_prices)),
-            "mid_price": float(np.mean(cluster_prices)),
-            "touches": len(cluster)
+    # 4. Formulate zone boundaries, touches, and strength
+    raw_zones = []
+    for c in clusters:
+        prices = [p["price"] for p in c]
+        weights = sum(p["weight"] for p in c)
+        types = set(p["type"] for p in c)
+        is_flip = len(types) > 1
+
+        mid_p = float(np.average(prices, weights=[p["weight"] for p in c]))
+        min_p = float(min(prices) - (zone_band_height * 0.25))
+        max_p = float(max(prices) + (zone_band_height * 0.25))
+
+        # Ensure minimum zone thickness
+        if (max_p - min_p) < zone_band_height:
+            diff = (zone_band_height - (max_p - min_p)) / 2.0
+            min_p -= diff
+            max_p += diff
+
+        touches = len(c)
+        if touches >= 4 or weights >= 6:
+            strength = "MAJOR"
+        elif touches >= 2 or weights >= 3:
+            strength = "INTERMEDIATE"
+        else:
+            strength = "LOCAL"
+
+        is_support = max_p <= current_price * 1.008
+        z_type = "support" if is_support else "resistance"
+
+        raw_zones.append({
+            "type": z_type,
+            "is_flip": is_flip,
+            "min_price": round(min_p, 2),
+            "max_price": round(max_p, 2),
+            "mid_price": round(mid_p, 2),
+            "touches": touches,
+            "weight": weights,
+            "strength": strength,
+            "dist_pct": round(abs(mid_p - current_price) / current_price * 100, 2)
         })
 
-    zones.sort(key=lambda z: abs(z["mid_price"] - current_price))
-    return zones[:6]
+    # 5. Separate into Demand (Support) and Supply (Resistance)
+    demands = [z for z in raw_zones if z["type"] == "support"]
+    supplies = [z for z in raw_zones if z["type"] == "resistance"]
+
+    demands.sort(key=lambda z: z["mid_price"], reverse=True)
+    supplies.sort(key=lambda z: z["mid_price"])
+
+    # 6. Merge overlapping zones within each group to produce clean rectangular bands
+    def merge_clean(zones_list, max_count=6):
+        clean = []
+        for z in zones_list:
+            overlap = False
+            for existing in clean:
+                if not (z["max_price"] < existing["min_price"] or z["min_price"] > existing["max_price"]):
+                    overlap = True
+                    existing["touches"] += z["touches"]
+                    existing["min_price"] = min(existing["min_price"], z["min_price"])
+                    existing["max_price"] = max(existing["max_price"], z["max_price"])
+                    existing["mid_price"] = round((existing["min_price"] + existing["max_price"]) / 2, 2)
+                    if z["strength"] == "MAJOR":
+                        existing["strength"] = "MAJOR"
+                    if z.get("is_flip"):
+                        existing["is_flip"] = True
+                    break
+            if not overlap:
+                clean.append(z)
+            if len(clean) >= max_count:
+                break
+        return clean
+
+    clean_demands = merge_clean(demands, max_count=max_zones // 2)
+    clean_supplies = merge_clean(supplies, max_count=max_zones // 2)
+
+    # 7. Assign human-like TradingView labels
+    for i, z in enumerate(clean_demands):
+        is_imm = (i == 0)
+        z["is_immediate"] = is_imm
+        z["id"] = f"demand_{i+1}"
+        if is_imm:
+            z["label"] = f"Immediate Demand Zone ({z['touches']}x)"
+        elif z["strength"] == "MAJOR":
+            z["label"] = f"Major Institutional Demand ({z['touches']}x)"
+        elif z.get("is_flip"):
+            z["label"] = f"Key Polarity Demand Base ({z['touches']}x)"
+        else:
+            z["label"] = f"Structural Demand Zone ({z['touches']}x)"
+
+    for i, z in enumerate(clean_supplies):
+        is_imm = (i == 0)
+        z["is_immediate"] = is_imm
+        z["id"] = f"supply_{i+1}"
+        if is_imm:
+            z["label"] = f"Immediate Overhead Supply ({z['touches']}x)"
+        elif z["strength"] == "MAJOR":
+            z["label"] = f"Major Distribution Supply ({z['touches']}x)"
+        elif z.get("is_flip"):
+            z["label"] = f"Key Polarity Supply Wall ({z['touches']}x)"
+        else:
+            z["label"] = f"Structural Supply Zone ({z['touches']}x)"
+
+    all_sr_zones = clean_demands + clean_supplies
+    return all_sr_zones
+
+
+# Alias for explicit caller naming
+build_maximum_sr_zones = cluster_support_resistance_zones

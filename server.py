@@ -360,7 +360,12 @@ def get_analysis(
             "min_price": round(z["min_price"], 2),
             "max_price": round(z["max_price"], 2),
             "mid_price": round(z["mid_price"], 2),
-            "touches": z["touches"]
+            "touches": z.get("touches", 1),
+            "strength": z.get("strength", "INTERMEDIATE"),
+            "label": z.get("label", ""),
+            "is_immediate": bool(z.get("is_immediate", False)),
+            "is_flip": bool(z.get("is_flip", False)),
+            "dist_pct": float(z.get("dist_pct", 0.0))
         })
 
     # Prepare FVGs

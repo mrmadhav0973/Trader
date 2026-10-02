@@ -253,24 +253,27 @@ def analyze_symbol(
         })
 
     # =========================================================================
-    # LAYER 2: Demand (Support) vs Supply (Resistance) Zones
+    # LAYER 2: Maximum Institutional Demand vs Supply Zones
     # =========================================================================
     closest_support = None
-    support_zones = [z for z in sr_zones if z["type"] == "support" and z["max_price"] <= current_price * 1.015]
+    support_zones = [z for z in sr_zones if z["type"] == "support"]
     if support_zones:
-        closest_support = max(support_zones, key=lambda z: z["mid_price"])
+        closest_support = support_zones[0]  # immediate closest demand below price
         dist_pct_supp = abs(current_price - closest_support["max_price"]) / current_price
-        if dist_pct_supp <= 0.025:
-            bullish_score += 20
+        is_at_demand = current_price >= closest_support["min_price"] and current_price <= closest_support["max_price"] * 1.015
+
+        if is_at_demand or dist_pct_supp <= 0.025:
+            bonus = 5 if closest_support.get("strength") == "MAJOR" or closest_support.get("is_flip") else 0
+            bullish_score += (20 + bonus)
             bullish_factors.append({
                 "name": "Institutional Demand Zone",
-                "detail": f"Price testing cluster demand ({curr_sym}{closest_support['min_price']:.1f} - {curr_sym}{closest_support['max_price']:.1f}) with {closest_support['touches']} historical touches",
+                "detail": f"Price reacting at {closest_support.get('label', 'Demand Zone')} ({curr_sym}{closest_support['min_price']:.1f} - {curr_sym}{closest_support['max_price']:.1f}) with {closest_support['touches']} historical touches",
                 "passed": True
             })
         else:
             bullish_factors.append({
                 "name": "Demand Zone Proximity",
-                "detail": f"Nearest support at {curr_sym}{closest_support['mid_price']:.1f} ({dist_pct_supp*100:.1f}% below current price)",
+                "detail": f"Nearest demand at {curr_sym}{closest_support['mid_price']:.1f} ({dist_pct_supp*100:.1f}% below current price)",
                 "passed": False
             })
     else:
@@ -281,15 +284,18 @@ def analyze_symbol(
         })
 
     closest_resistance = None
-    resistance_zones = [z for z in sr_zones if z["type"] == "resistance" and z["min_price"] >= current_price * 0.985]
+    resistance_zones = [z for z in sr_zones if z["type"] == "resistance"]
     if resistance_zones:
-        closest_resistance = min(resistance_zones, key=lambda z: z["mid_price"])
+        closest_resistance = resistance_zones[0]  # immediate closest supply overhead
         dist_pct_res = abs(closest_resistance["min_price"] - current_price) / current_price
-        if dist_pct_res <= 0.025:
-            bearish_score += 20
+        is_at_supply = current_price >= closest_resistance["min_price"] * 0.985 and current_price <= closest_resistance["max_price"]
+
+        if is_at_supply or dist_pct_res <= 0.025:
+            bonus = 5 if closest_resistance.get("strength") == "MAJOR" or closest_resistance.get("is_flip") else 0
+            bearish_score += (20 + bonus)
             bearish_factors.append({
                 "name": "Institutional Supply Zone",
-                "detail": f"Price rejecting cluster supply ({curr_sym}{closest_resistance['min_price']:.1f} - {curr_sym}{closest_resistance['max_price']:.1f}) with {closest_resistance['touches']} historical touches",
+                "detail": f"Price rejecting at {closest_resistance.get('label', 'Supply Zone')} ({curr_sym}{closest_resistance['min_price']:.1f} - {curr_sym}{closest_resistance['max_price']:.1f}) with {closest_resistance['touches']} historical touches",
                 "passed": True
             })
         else:
