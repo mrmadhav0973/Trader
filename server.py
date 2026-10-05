@@ -45,19 +45,14 @@ PRESET_SYMBOLS = [
 
 
 def prewarm_cache():
-    """Background worker to pre-warm top symbols and keep screener cached."""
+    """Background worker to pre-warm top symbols."""
     print("[AlphaEdge] Pre-warming cache for key symbols...")
     for sym in PRESET_SYMBOLS:
         try:
-            df = fetch_ohlcv(sym, timeframe="1d")
-            analyze_symbol(df, capital=5000.0, risk_pct=0.02)
-            time.sleep(0.3)
+            fetch_ohlcv(sym, timeframe="1d")
+            time.sleep(0.2)
         except Exception as e:
             print(f"Pre-warm note for {sym}: {e}")
-
-
-    # Compute initial screener cache
-    refresh_screener_cache(5000.0, "1d", "all")
     print("[AlphaEdge] Cache pre-warming complete. Instant switching ready.")
 
 
@@ -278,8 +273,8 @@ def get_analysis(
     risk_pct: float = Query(0.02, description="Risk percentage (e.g. 0.02 for 2%)")
 ):
     """
-    Execute full confluence analysis on symbol and return JSON payload
-    tailored for the interactive frontend chart and trade blueprint card.
+    Fetch clean candlestick market data and quote telemetry for the pure chart terminal.
+    Bypasses heavy indicator/analysis computation for instant ultra-low latency response.
     """
     try:
         df = fetch_ohlcv(symbol, timeframe=timeframe)
@@ -287,22 +282,17 @@ def get_analysis(
         currency = df.attrs.get("currency", "INR")
         currency_symbol = df.attrs.get("currency_symbol", "₹")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to analyze {symbol}: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch data for {symbol}: {str(e)}")
 
-    cache_key = (resolved_sym, timeframe, capital, risk_pct)
+    cache_key = (resolved_sym, timeframe)
     now = time.time()
     if cache_key in _ANALYSIS_CACHE:
         c_ts, c_data = _ANALYSIS_CACHE[cache_key]
         if now - c_ts < _ANALYSIS_CACHE_TTL:
             return c_data
 
-    try:
-        analysis = analyze_symbol(df, capital=capital, risk_pct=risk_pct)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to analyze {resolved_sym}: {str(e)}")
-
-    # Extract clean candle list (up to 200 candles for full TradingView panning and zooming)
-    candles_df = analysis["df"].tail(200)
+    # Extract clean candle list (up to 300 candles for full TradingView panning and zooming)
+    candles_df = df.tail(300)
     candles = []
     for dt, row in candles_df.iterrows():
         unix_ts = int(dt.timestamp())
@@ -313,113 +303,37 @@ def get_analysis(
             "high": round(float(row["High"]), 2),
             "low": round(float(row["Low"]), 2),
             "close": round(float(row["Close"]), 2),
-            "volume": int(row["Volume"]),
-            "ema9": round(float(row["EMA_9"]), 2) if "EMA_9" in row and not pd.isna(row["EMA_9"]) else None,
-            "ema20": round(float(row["EMA_20"]), 2) if "EMA_20" in row and not pd.isna(row["EMA_20"]) else None,
-            "ema21": round(float(row["EMA_21"]), 2) if "EMA_21" in row and not pd.isna(row["EMA_21"]) else None,
-            "ema50": round(float(row["EMA_50"]), 2) if "EMA_50" in row and not pd.isna(row["EMA_50"]) else None,
-            "rsi": round(float(row["RSI"]), 2) if "RSI" in row and not pd.isna(row["RSI"]) else None,
-            "vwap": round(float(row["VWAP"]), 2) if "VWAP" in row and not pd.isna(row["VWAP"]) else None,
-            "vwap_upper": round(float(row["VWAP_Upper"]), 2) if "VWAP_Upper" in row and not pd.isna(row["VWAP_Upper"]) else None,
-            "vwap_lower": round(float(row["VWAP_Lower"]), 2) if "VWAP_Lower" in row and not pd.isna(row["VWAP_Lower"]) else None
+            "volume": int(row["Volume"]) if "Volume" in row and not pd.isna(row["Volume"]) else 0
         })
 
-    # Prepare trendlines with strictly validated timestamps (start_time < end_time)
-    trendlines_data = {}
-    if analysis["trendlines"].get("support_line"):
-        sl = analysis["trendlines"]["support_line"]
-        st = int(sl["start_time"].timestamp())
-        et = int(sl["end_time"].timestamp())
-        if st < et:
-            trendlines_data["support_line"] = {
-                "start_time": st,
-                "start_price": round(sl["start_price"], 2),
-                "end_time": et,
-                "end_price": round(sl["end_price"], 2),
-                "is_ascending": sl["is_ascending"]
-            }
-    if analysis["trendlines"].get("resistance_line"):
-        rl = analysis["trendlines"]["resistance_line"]
-        st = int(rl["start_time"].timestamp())
-        et = int(rl["end_time"].timestamp())
-        if st < et:
-            trendlines_data["resistance_line"] = {
-                "start_time": st,
-                "start_price": round(rl["start_price"], 2),
-                "end_time": et,
-                "end_price": round(rl["end_price"], 2),
-                "is_descending": rl["is_descending"]
-            }
-
-
-    # Prepare S/R Zones
-    sr_zones = []
-    for z in analysis.get("sr_zones", []):
-        sr_zones.append({
-            "type": z["type"],
-            "min_price": round(z["min_price"], 2),
-            "max_price": round(z["max_price"], 2),
-            "mid_price": round(z["mid_price"], 2),
-            "touches": z.get("touches", 1),
-            "strength": z.get("strength", "INTERMEDIATE"),
-            "label": z.get("label", ""),
-            "is_immediate": bool(z.get("is_immediate", False)),
-            "is_flip": bool(z.get("is_flip", False)),
-            "dist_pct": float(z.get("dist_pct", 0.0))
-        })
-
-    # Prepare FVGs
-    fvgs = []
-    for f in analysis.get("fvgs", []):
-        fvgs.append({
-            "type": f["type"],
-            "top": round(f["top"], 2),
-            "bottom": round(f["bottom"], 2),
-            "is_mitigated": f["is_mitigated"]
-        })
-
-    # Prepare Sweeps
-    sweeps = []
-    for s in analysis.get("sweeps", []):
-        sweeps.append({
-            "type": s["type"],
-            "swept_level": round(s["swept_level"], 2),
-            "description": s["description"]
-        })
+    if len(df) >= 2:
+        curr_price = float(df["Close"].iloc[-1])
+        prev_price = float(df["Close"].iloc[-2])
+        price_change = curr_price - prev_price
+        pct_change = (price_change / prev_price) * 100.0 if prev_price != 0 else 0.0
+    elif len(df) == 1:
+        curr_price = float(df["Close"].iloc[-1])
+        price_change = 0.0
+        pct_change = 0.0
+    else:
+        curr_price = 0.0
+        price_change = 0.0
+        pct_change = 0.0
 
     payload = {
         "symbol": resolved_sym,
         "currency": currency,
         "currency_symbol": currency_symbol,
         "timeframe": timeframe,
-        "current_price": round(analysis["current_price"], 2),
-        "atr": round(analysis["atr"], 2),
-        "rsi": round(analysis["rsi"], 2),
-        "trade_direction": analysis.get("trade_direction", "LONG"),
-        "bullish_score": analysis.get("bullish_score", 0),
-        "bearish_score": analysis.get("bearish_score", 0),
-        "signal_type": analysis["signal_type"],
-        "signal_grade": analysis["signal_grade"],
-        "confluence_score": analysis["confluence_score"],
-        "confluence_factors": analysis["confluence_factors"],
-        "risk_plan": analysis["risk_plan"],
-        "trendlines": trendlines_data,
-        "sr_zones": sr_zones,
-        "fvgs": fvgs,
-        "sweeps": sweeps,
+        "current_price": round(curr_price, 2),
+        "change": round(price_change, 2),
+        "change_pct": round(pct_change, 2),
         "candles": candles,
-        "market_structure": analysis.get("market_structure", {}),
-        "candlestick_patterns": analysis.get("candlestick_patterns", []),
-        "divergence": analysis.get("divergence", {}),
-        "vsa": analysis.get("vsa", {}),
-        "veteran_insights": analysis.get("veteran_insights", {}),
-        "scalp_mastery": analysis.get("scalp_mastery", {}),
-        "institutional_strategies": analysis.get("institutional_strategies", {}),
         "market_status": get_market_status(resolved_sym)
     }
 
     _ANALYSIS_CACHE[cache_key] = (now, payload)
-    _ANALYSIS_CACHE[(symbol.strip().upper(), timeframe, capital, risk_pct)] = (now, payload)
+    _ANALYSIS_CACHE[(symbol.strip().upper(), timeframe)] = (now, payload)
     return payload
 
 
