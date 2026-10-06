@@ -1133,9 +1133,468 @@
       display: none;
       animation: fadeIn 0.2s ease;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
+    /* ==========================================================================
+       INSTITUTIONAL MARKET SCANNER & CONFLUENCE RADAR
+       ========================================================================== */
+    .screener-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screener-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: var(--bg-surface);
+    }
+
+    .screener-title-area {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .screener-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .screener-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: -0.2px;
+    }
+
+    .screener-count-badge {
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.12);
+      color: var(--color-accent-blue);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .screener-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .screener-controls-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .screener-control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .screener-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .screener-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+    }
+    .screener-select:focus {
+      border-color: var(--border-focus);
+    }
+
+    .screener-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+    .screener-btn:hover {
+      border-color: var(--border-focus);
+      color: var(--color-accent-blue);
+      background: var(--bg-card-hover);
+    }
+
+    .screener-subtoolbar {
+      padding: 10px 20px;
+      background: var(--bg-canvas);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .screener-quick-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .screener-pill-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+    .screener-pill-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+    .screener-pill-btn.active {
+      background: var(--color-accent-blue);
+      border-color: var(--color-accent-blue);
+      color: #FFF;
+      font-weight: 700;
+    }
+
+    .screener-search-wrap {
+      display: flex;
+      align-items: center;
+    }
+
+    .screener-search-input {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      width: 220px;
+      outline: none;
+    }
+    .screener-search-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .screener-table-wrap {
+      position: relative;
+      overflow-x: auto;
+      min-height: 220px;
+    }
+
+    .screener-loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(12, 16, 23, 0.7);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-accent-blue);
+      z-index: 10;
+    }
+    [data-theme="light"] .screener-loading {
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    .spinner-mini {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(59, 130, 246, 0.3);
+      border-top-color: var(--color-accent-blue);
+      border-radius: 50%;
+      animation: spinMini 0.8s linear infinite;
+    }
+    @keyframes spinMini {
+      to { transform: rotate(360deg); }
+    }
+
+    .screener-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    .screener-table thead th {
+      padding: 11px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .screener-table tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    .screener-table tbody tr:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .screener-table td {
+      padding: 10px 14px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .screener-sym-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .screener-sym-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .screener-sym-name {
+      font-weight: 800;
+      color: var(--text-primary);
+      font-size: 13px;
+      letter-spacing: -0.1px;
+    }
+    .screener-cat-tag {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .screener-cat-tag.stocks { background: rgba(59, 130, 246, 0.15); color: #3B82F6; }
+    .screener-cat-tag.us { background: rgba(168, 85, 247, 0.15); color: #A855F7; }
+    .screener-cat-tag.crypto { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+    .screener-cat-tag.commodities { background: rgba(16, 185, 129, 0.15); color: #10B981; }
+
+    .screener-subname {
+      font-size: 11px;
+      color: var(--text-muted);
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-mini-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 999px;
+    }
+    .status-mini-dot.live {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-bull);
+    }
+    .status-mini-dot.closed {
+      background: var(--bg-input);
+      color: var(--text-muted);
+    }
+
+    .screener-score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .screener-score-pill.grade-a-plus {
+      background: var(--color-bull-soft);
+      color: var(--color-bull);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .screener-score-pill.grade-a {
+      background: rgba(59, 130, 246, 0.12);
+      color: #3B82F6;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+    .screener-score-pill.grade-b {
+      background: rgba(245, 158, 11, 0.12);
+      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+    .screener-score-pill.grade-c {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .screener-direction-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .screener-direction-badge.bull {
+      background: var(--color-bull-soft);
+      color: var(--color-bull);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .screener-direction-badge.bear {
+      background: var(--color-bear-soft);
+      color: var(--color-bear);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .screener-direction-badge.neutral {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .screener-edges-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: 240px;
+    }
+
+    .screener-edge-chip {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+    .screener-edge-chip.highlight {
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: var(--color-accent-blue);
+    }
+
+    .screener-price-box {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-family: var(--font-mono);
+    }
+    .screener-price-val {
+      font-weight: 800;
+      font-size: 12.5px;
+      color: var(--text-primary);
+    }
+    .screener-chg-val {
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+    .screener-chg-val.up { color: var(--color-bull); }
+    .screener-chg-val.down { color: var(--color-bear); }
+
+    .screener-exec-box {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .screener-entry-val { color: var(--color-accent-blue); font-weight: 700; }
+    .screener-sl-val { color: var(--color-bear); font-weight: 600; }
+    .screener-target-val { color: var(--color-bull); font-weight: 700; }
+
+    .screener-rr-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--color-bull);
+      background: var(--color-bull-soft);
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .btn-screener-load {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--color-accent-blue);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: var(--transition-smooth);
+      white-space: nowrap;
+    }
+    .btn-screener-load:hover {
+      background: var(--color-accent-blue);
+      border-color: var(--color-accent-blue);
+      color: #FFF;
+    }
+
+    .screener-empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .screener-empty-state p {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text-secondary);
     }
   </style>
 </head>
@@ -1569,6 +2028,100 @@
 
         <!-- Transparent S/R Zones & Position Risk-Reward Box Canvas Overlay -->
         <canvas id="tvZonesCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- INSTITUTIONAL MARKET SCANNER & HIGH-CONFLUENCE RADAR -->
+    <!-- ===================================================================== -->
+    <section class="screener-section" id="marketScreenerSection">
+      <div class="screener-header">
+        <div class="screener-title-area">
+          <div class="screener-title-row">
+            <h2 class="screener-title">🌐 Institutional Market Scanner & High-Confluence Radar</h2>
+            <span class="screener-count-badge" id="screenerCountBadge">Scanning...</span>
+          </div>
+          <p class="screener-subtitle">
+            Algorithmic 4-Pillar Confluence Engine (Market Structure + Candle Anatomy/VSA + Indicators + Top-Down Triad) + 8 Institutional Edges.
+          </p>
+        </div>
+
+        <div class="screener-controls-bar">
+          <div class="screener-control-group">
+            <label class="screener-label" for="screenerCategorySelect">Market:</label>
+            <select class="screener-select" id="screenerCategorySelect" onchange="onScreenerCategoryChange()">
+              <option value="all" selected>All Markets (Multi-Asset)</option>
+              <option value="stocks">Indian Equities (NSE)</option>
+              <option value="us">US Equities (Nasdaq/NYSE)</option>
+              <option value="crypto">Crypto 24/7</option>
+              <option value="commodities">Commodities Futures</option>
+            </select>
+          </div>
+
+          <div class="screener-control-group">
+            <label class="screener-label" for="screenerSessionSelect">Hours:</label>
+            <select class="screener-select" id="screenerSessionSelect" onchange="onScreenerSessionChange()">
+              <option value="all" selected>All Setups (24/7 & Swings)</option>
+              <option value="live">Live Markets Only</option>
+            </select>
+          </div>
+
+          <div class="screener-control-group">
+            <label class="screener-label" for="screenerMinScoreSelect">Min Edge:</label>
+            <select class="screener-select" id="screenerMinScoreSelect" onchange="onScreenerMinScoreChange()">
+              <option value="60" selected>Grade B+ (60%+ Confluence)</option>
+              <option value="85">Grade A (85%+ High Confluence)</option>
+              <option value="95">Grade A+ (95% Pure Confluence)</option>
+            </select>
+          </div>
+
+          <button class="screener-btn" id="btnReScanMarket" onclick="triggerMarketRescan()" title="Force Refresh Market Scanner">
+            🔄 Re-Scan Market
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Search Bar & Category Filter Pills -->
+      <div class="screener-subtoolbar">
+        <div class="screener-quick-pills">
+          <button class="screener-pill-btn active" data-cat="all" onclick="setScreenerFilterCategory('all')">All</button>
+          <button class="screener-pill-btn" data-cat="stocks" onclick="setScreenerFilterCategory('stocks')">NSE Stocks</button>
+          <button class="screener-pill-btn" data-cat="us" onclick="setScreenerFilterCategory('us')">US Tech</button>
+          <button class="screener-pill-btn" data-cat="crypto" onclick="setScreenerFilterCategory('crypto')">Crypto 24/7</button>
+          <button class="screener-pill-btn" data-cat="commodities" onclick="setScreenerFilterCategory('commodities')">Commodities</button>
+        </div>
+        <div class="screener-search-wrap">
+          <input type="text" class="screener-search-input" id="screenerSearchInput" placeholder="Filter ticker or setup..." oninput="filterScreenerTableLocally()">
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="screener-table-wrap">
+        <div class="screener-loading" id="screenerLoader" style="display: none;">
+          <div class="spinner-mini"></div>
+          <span>Scanning liquid markets for 95% institutional confluences...</span>
+        </div>
+        <table class="screener-table" id="screenerTable">
+          <thead>
+            <tr>
+              <th>Symbol & Market</th>
+              <th>Confluence & Grade</th>
+              <th>Setup & Bias</th>
+              <th>8 Institutional Edges</th>
+              <th>Current Price</th>
+              <th>Planned Entry & SL</th>
+              <th>Targets & R:R</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="screenerTableBody">
+            <!-- Dynamically injected rows -->
+          </tbody>
+        </table>
+        <div class="screener-empty-state" id="screenerEmptyState" style="display: none;">
+          <p>No setups matching the current filter criteria.</p>
+          <small>Try selecting "All Markets" or lowering the minimum score to 60%.</small>
+        </div>
       </div>
     </section>
   </main>
@@ -2457,6 +3010,10 @@
     function initTradingViewChart() {
       const container = document.getElementById('tvChartContainer');
       if (!container) return;
+      if (typeof LightweightCharts === 'undefined') {
+        setTimeout(initTradingViewChart, 100);
+        return;
+      }
       container.innerHTML = '';
 
       const isDark = currentTheme === 'dark';
@@ -3056,13 +3613,289 @@
       }
     }
 
-    // Initial Boots
-    window.addEventListener('DOMContentLoaded', () => {
-      initTradingViewChart();
+    // =========================================================================
+    // INSTITUTIONAL MARKET SCANNER & CONFLUENCE RADAR LOGIC
+    // =========================================================================
+    let screenerData = [];
+    let screenerLoading = false;
+    let screenerCurrentCategory = 'all';
+    let screenerLiveOnly = false;
+    let screenerMinScore = 60;
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function loadScreener(forceRefresh = false) {
+      if (screenerLoading) return;
+      screenerLoading = true;
+
+      const loader = document.getElementById('screenerLoader');
+      const countBadge = document.getElementById('screenerCountBadge');
+
+      if (loader) loader.style.display = 'flex';
+
+      try {
+        const url = `/api/screener?capital=5000&timeframe=${encodeURIComponent(currentTimeframe)}&category=${encodeURIComponent(screenerCurrentCategory)}&live_only=${screenerLiveOnly}&min_score=${screenerMinScore}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        screenerData = data.setups || [];
+        if (countBadge) {
+          const totalScanned = data.scanned_count || screenerData.length;
+          countBadge.textContent = `${screenerData.length} Setups Found (${totalScanned} Scanned)`;
+        }
+
+        renderScreenerTable(screenerData);
+      } catch (err) {
+        console.error('Screener fetch failed:', err);
+        if (countBadge) countBadge.textContent = 'Scan Error';
+        showNotification('⚠️ Screener update failed. Retrying...');
+      } finally {
+        screenerLoading = false;
+        if (loader) loader.style.display = 'none';
+      }
+    }
+
+    function renderScreenerTable(items) {
+      const tbody = document.getElementById('screenerTableBody');
+      const emptyState = document.getElementById('screenerEmptyState');
+      if (!tbody) return;
+
+      tbody.innerHTML = '';
+
+      if (!items || items.length === 0) {
+        if (emptyState) emptyState.style.display = 'flex';
+        return;
+      }
+      if (emptyState) emptyState.style.display = 'none';
+
+      items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'screener-row';
+        tr.onclick = (e) => {
+          if (e.target.closest('.btn-screener-load')) return;
+          jumpToSymbol(item.symbol);
+        };
+
+        // Confluence Score & Grade Pill
+        const score = item.confluence_score || 60;
+        const passed = item.passed_count || 2;
+        let gradeClass = 'grade-b';
+        if (score >= 95 || passed >= 4) {
+          gradeClass = 'grade-a-plus';
+        } else if (score >= 85 || passed >= 3) {
+          gradeClass = 'grade-a';
+        } else if (score >= 60) {
+          gradeClass = 'grade-b';
+        } else {
+          gradeClass = 'grade-c';
+        }
+
+        // Action / Direction
+        const act = item.action || 'NEUTRAL';
+        let dirClass = 'neutral';
+        let dirIcon = '⚪';
+        if (act.includes('BUY') || act.includes('LONG') || item.direction === 'BULLISH') {
+          dirClass = 'bull';
+          dirIcon = '🟢';
+        } else if (act.includes('SELL') || act.includes('SHORT') || item.direction === 'BEARISH') {
+          dirClass = 'bear';
+          dirIcon = '🔴';
+        }
+
+        // Prices & Currency
+        const currSym = item.currency_symbol || (item.currency === 'USD' ? '$' : '₹');
+        const priceFmt = `${currSym}${parseFloat(item.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const chgVal = item.pct_change || 0;
+        const chgClass = chgVal >= 0 ? 'up' : 'down';
+        const chgSign = chgVal >= 0 ? '+' : '';
+        const chgFmt = `${chgSign}${chgVal.toFixed(2)}%`;
+
+        const entryFmt = item.entry_price > 0 ? `${currSym}${parseFloat(item.entry_price).toFixed(2)}` : 'At Mkt';
+        const slFmt = item.stop_loss > 0 ? `${currSym}${parseFloat(item.stop_loss).toFixed(2)}` : '--';
+        const t1Fmt = item.target_1 > 0 ? `${currSym}${parseFloat(item.target_1).toFixed(2)}` : '--';
+        const t2Fmt = item.target_2 > 0 ? `${currSym}${parseFloat(item.target_2).toFixed(2)}` : '--';
+        const rrFmt = item.risk_reward || '1:2.0';
+
+        // Category Tag
+        const cat = (item.category || 'stocks').toLowerCase();
+        let catLabel = 'NSE';
+        if (cat === 'us') catLabel = 'US TECH';
+        else if (cat === 'crypto') catLabel = 'CRYPTO';
+        else if (cat === 'commodities') catLabel = 'COMMODITY';
+
+        // Live / Closed Status Pill
+        const isLive = !!item.is_open;
+        const statusHtml = isLive 
+          ? `<span class="status-mini-dot live">🟢 LIVE</span>`
+          : `<span class="status-mini-dot closed">⚪ CLOSED</span>`;
+
+        // 8 Institutional Edge Badges (Safely handle Array or delimited String)
+        let edges = item.edge_summary;
+        if (typeof edges === 'string') {
+          edges = edges.split(/\s*\+\s*|\s*,\s*/).map(s => s.trim()).filter(Boolean);
+        } else if (!Array.isArray(edges)) {
+          edges = [];
+        }
+        let edgeChipsHtml = '';
+        if (edges.length > 0) {
+          edgeChipsHtml = edges.map(e => `<span class="screener-edge-chip highlight">${escapeHtml(e)}</span>`).join('');
+        } else {
+          edgeChipsHtml = `<span class="screener-edge-chip">Core S/R Level</span>`;
+        }
+
+        tr.innerHTML = `
+          <td>
+            <div class="screener-sym-col">
+              <div class="screener-sym-header">
+                <span class="screener-sym-name">${escapeHtml(item.display_symbol || item.symbol)}</span>
+                <span class="screener-cat-tag ${cat}">${catLabel}</span>
+                ${statusHtml}
+              </div>
+              <span class="screener-subname" title="${escapeHtml(item.name || '')}">${escapeHtml(item.name || '')}</span>
+            </div>
+          </td>
+          <td>
+            <span class="screener-score-pill ${gradeClass}">
+              <b>${score}%</b> (${passed}/4 Pillars)
+            </span>
+          </td>
+          <td>
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <span class="screener-direction-badge ${dirClass}">${dirIcon} ${escapeHtml(act)}</span>
+              <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">${escapeHtml(item.setup || 'High Edge Setup')}</span>
+            </div>
+          </td>
+          <td>
+            <div class="screener-edges-wrap">
+              ${edgeChipsHtml}
+            </div>
+          </td>
+          <td>
+            <div class="screener-price-box">
+              <span class="screener-price-val">${priceFmt}</span>
+              <span class="screener-chg-val ${chgClass}">${chgFmt}</span>
+            </div>
+          </td>
+          <td>
+            <div class="screener-exec-box">
+              <span>Entry: <b class="screener-entry-val">${entryFmt}</b></span>
+              <span>SL: <b class="screener-sl-val">${slFmt}</b></span>
+            </div>
+          </td>
+          <td>
+            <div class="screener-exec-box">
+              <span>T1: <b class="screener-target-val">${t1Fmt}</b></span>
+              <span>T2: <b class="screener-target-val">${t2Fmt}</b></span>
+              <span class="screener-rr-tag" style="margin-top: 2px;">R:R ${escapeHtml(rrFmt)}</span>
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-screener-load" onclick="jumpToSymbol('${escapeHtml(item.symbol)}')">
+              Analyze ↗
+            </button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function jumpToSymbol(sym) {
+      if (!sym) return;
+      selectSymbol(sym);
+      const chartElem = document.getElementById('chartCard');
+      if (chartElem) {
+        chartElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      showNotification(`🎯 Loaded ${sym} into High-Confluence Terminal`);
+    }
+
+    function onScreenerCategoryChange() {
+      const select = document.getElementById('screenerCategorySelect');
+      if (!select) return;
+      screenerCurrentCategory = select.value;
+      document.querySelectorAll('.screener-pill-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-cat') === screenerCurrentCategory);
+      });
+      loadScreener();
+    }
+
+    function setScreenerFilterCategory(cat) {
+      screenerCurrentCategory = cat;
+      const select = document.getElementById('screenerCategorySelect');
+      if (select) select.value = cat;
+      document.querySelectorAll('.screener-pill-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-cat') === cat);
+      });
+      loadScreener();
+    }
+
+    function onScreenerSessionChange() {
+      const select = document.getElementById('screenerSessionSelect');
+      if (!select) return;
+      screenerLiveOnly = select.value === 'live';
+      loadScreener();
+    }
+
+    function onScreenerMinScoreChange() {
+      const select = document.getElementById('screenerMinScoreSelect');
+      if (!select) return;
+      screenerMinScore = parseInt(select.value, 10) || 60;
+      loadScreener();
+    }
+
+    function triggerMarketRescan() {
+      showNotification('🔄 Scanning markets for 95% confluences...');
+      loadScreener(true);
+    }
+
+    function filterScreenerTableLocally() {
+      const input = document.getElementById('screenerSearchInput');
+      if (!input) return;
+      const q = input.value.trim().toLowerCase();
+      if (!q) {
+        renderScreenerTable(screenerData);
+        return;
+      }
+      const filtered = screenerData.filter(item => {
+        const sym = (item.symbol || '').toLowerCase();
+        const dsym = (item.display_symbol || '').toLowerCase();
+        const name = (item.name || '').toLowerCase();
+        const setup = (item.setup || '').toLowerCase();
+        const act = (item.action || '').toLowerCase();
+        return sym.includes(q) || dsym.includes(q) || name.includes(q) || setup.includes(q) || act.includes(q);
+      });
+      renderScreenerTable(filtered);
+    }
+
+    // Robust Initial Boot Pattern
+    function bootAlphaEdge() {
+      try {
+        initTradingViewChart();
+      } catch (e) {
+        console.warn('initTradingViewChart deferred:', e);
+      }
       loadChartData();
       fetchMarketIndices();
       setInterval(fetchMarketIndices, 30000); // Poll indices every 30s
-    });
+      loadScreener();
+      setInterval(() => loadScreener(), 60000); // Auto-refresh screener every 60s
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', bootAlphaEdge);
+    } else {
+      bootAlphaEdge();
+    }
   </script>
 </body>
 </html>

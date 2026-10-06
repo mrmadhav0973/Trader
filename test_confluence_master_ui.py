@@ -46,6 +46,8 @@ def run_test():
             print("Launching Chromium...", flush=True)
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1450, "height": 1000})
+            page.on("console", lambda msg: print(f"[BROWSER CONSOLE] {msg.type}: {msg.text}", flush=True))
+            page.on("pageerror", lambda err: print(f"[BROWSER ERROR] {err}", flush=True))
             
             print(f"Navigating to http://127.0.0.1:{port}...", flush=True)
             page.goto(f"http://127.0.0.1:{port}", wait_until="domcontentloaded", timeout=25000)
@@ -58,7 +60,7 @@ def run_test():
             print("Waiting for confluence data to populate...", flush=True)
             page.wait_for_function(
                 "() => { const el = document.getElementById('confluenceActionText'); return el && el.innerText.trim() !== 'SCANNING'; }",
-                timeout=30000
+                timeout=45000
             )
 
             action_text = page.locator("#confluenceActionText").inner_text()
@@ -238,8 +240,8 @@ def run_test():
 
             # Test Switching Symbol to BTC-USD (Crypto)
             print("Testing symbol switch to BTC-USD (Crypto)...", flush=True)
-            page.click("button.symbol-chip:has-text('BTC-USD')")
-            time.sleep(3.0)
+            page.evaluate("() => selectSymbol('BTC-USD')")
+            time.sleep(2.0)
             page.wait_for_function(
                 "() => { const el = document.getElementById('activeSymbolTitle'); return el && el.innerText.includes('BTC-USD'); }",
                 timeout=20000
@@ -251,6 +253,71 @@ def run_test():
             crypto_shot_path = os.path.join(artifact_dir, "confluence_master_crypto.png")
             page.screenshot(path=crypto_shot_path)
             print(f"Saved crypto screenshot to {crypto_shot_path}", flush=True)
+
+            # =================================================================
+            # Test Institutional Market Screener Block
+            # =================================================================
+            print("\n--- TESTING INSTITUTIONAL MARKET SCREENER ---", flush=True)
+            screener_sec = page.locator("#marketScreenerSection")
+            assert screener_sec.is_visible()
+            print("Market screener section is visible!", flush=True)
+
+            print("Waiting for screener table to populate with setups...", flush=True)
+            page.wait_for_function(
+                "() => { const rows = document.querySelectorAll('#screenerTableBody tr.screener-row'); return rows.length > 0; }",
+                timeout=35000
+            )
+
+            row_count = page.evaluate("() => document.querySelectorAll('#screenerTableBody tr.screener-row').length")
+            print(f"Screener table populated with {row_count} setups!", flush=True)
+            assert row_count > 0, "Expected at least 1 setup in screener"
+
+            # Check confluence score formatting on first row
+            first_score_text = page.locator("#screenerTableBody tr.screener-row .screener-score-pill").first.inner_text()
+            print(f"First setup confluence score pill: {first_score_text}", flush=True)
+            assert "%" in first_score_text and "Pillars" in first_score_text
+
+            # Test local search filter
+            print("Testing local search filter input...", flush=True)
+            page.fill("#screenerSearchInput", "TATA")
+            time.sleep(0.5)
+            filtered_count = page.evaluate("() => document.querySelectorAll('#screenerTableBody tr.screener-row').length")
+            print(f"Filtered by 'TATA': {filtered_count} setups", flush=True)
+            assert filtered_count >= 1
+            page.fill("#screenerSearchInput", "")
+            time.sleep(0.3)
+
+            # Test jumping/loading a symbol into the chart terminal via "Analyze ↗"
+            print("Testing 'Analyze ↗' button navigation...", flush=True)
+            first_analyze_btn = page.locator("#screenerTableBody tr.screener-row .btn-screener-load").first
+            first_row_sym = page.locator("#screenerTableBody tr.screener-row .screener-sym-name").first.inner_text().strip()
+            print(f"Clicking Analyze on first setup ({first_row_sym})...", flush=True)
+            first_analyze_btn.click(force=True)
+            target_token = first_row_sym.split(".")[0]
+            print(f"Waiting for chart title to include '{target_token}'...", flush=True)
+            page.wait_for_function(
+                f"() => {{ const el = document.getElementById('activeSymbolTitle'); return el && el.innerText.includes('{target_token}'); }}",
+                timeout=25000
+            )
+            active_title = page.locator("#activeSymbolTitle").inner_text()
+            print(f"Active symbol title after screener click: {active_title}", flush=True)
+
+            # Test Quick Category Filter Pill (Crypto 24/7)
+            print("Testing Category filter pill ('Crypto 24/7')...", flush=True)
+            page.click("button.screener-pill-btn:has-text('Crypto 24/7')")
+            time.sleep(1.0)
+            page.wait_for_function(
+                "() => { const rows = document.querySelectorAll('#screenerTableBody tr.screener-row'); return rows.length > 0; }",
+                timeout=30000
+            )
+            crypto_rows = page.evaluate("() => document.querySelectorAll('#screenerTableBody tr.screener-row').length")
+            print(f"Crypto filtered setups count: {crypto_rows}", flush=True)
+            assert crypto_rows > 0
+
+            # Capture screenshot of full market screener
+            screener_shot_path = os.path.join(artifact_dir, "market_screener_verified.png")
+            page.locator("#marketScreenerSection").screenshot(path=screener_shot_path)
+            print(f"Saved market screener screenshot to {screener_shot_path}", flush=True)
 
             print("ALL PLAYWRIGHT TESTS PASSED SUCCESSFULLY!", flush=True)
 

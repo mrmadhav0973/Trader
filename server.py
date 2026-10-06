@@ -59,137 +59,175 @@ def prewarm_cache():
     print("[AlphaEdge] Cache pre-warming complete. Instant switching ready.")
 
 
-def refresh_screener_cache(capital: float = 5000.0, timeframe: str = "1d", category: str = "all"):
+# Curated Prime candidate sets for rapid, comprehensive market scanning (<3s)
+SCREENER_PRIME_INDIAN = [
+    "TATAPOWER.NS", "RELIANCE.NS", "INFY.NS", "HDFCBANK.NS", "SBIN.NS",
+    "TCS.NS", "ICICIBANK.NS", "LT.NS", "BHARTIARTL.NS", "BAJFINANCE.NS",
+    "MARUTI.NS", "TITAN.NS", "ADANIENT.NS", "TATASTEEL.NS", "ITC.NS"
+]
+SCREENER_PRIME_US = [
+    "NVDA", "TSLA", "AAPL", "MSFT", "AMD", "AMZN", "GOOGL", "META", "COIN", "PLTR"
+]
+SCREENER_PRIME_CRYPTO = [
+    "BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD", "XRP-USD",
+    "BNB-USD", "AVAX-USD", "LINK-USD", "ADA-USD", "NEAR-USD"
+]
+SCREENER_PRIME_COMMODITIES = [
+    "GC=F", "SI=F", "CL=F", "BZ=F", "NG=F", "HG=F"
+]
+
+
+def refresh_screener_cache(
+    capital: float = 5000.0,
+    timeframe: str = "1d",
+    category: str = "all",
+    live_only: bool = False,
+    min_score: int = 60
+):
     global _SCREENER_CACHE
     cat = (category or "all").lower()
 
     if cat == "crypto":
-        candidates = list(CRYPTO_SCREENER_WATCHLIST)
+        candidates = list(SCREENER_PRIME_CRYPTO)
     elif cat == "commodities":
-        candidates = list(COMMODITY_SCREENER_WATCHLIST)
+        candidates = list(SCREENER_PRIME_COMMODITIES)
     elif cat == "stocks":
-        candidates = list(STOCK_SCREENER_WATCHLIST)
+        candidates = SCREENER_PRIME_INDIAN + SCREENER_PRIME_US
     else:  # "all"
-        candidates = []
-        seen = set()
-        for sym in (CRYPTO_SCREENER_WATCHLIST + COMMODITY_SCREENER_WATCHLIST + STOCK_SCREENER_WATCHLIST):
-            if sym not in seen:
-                seen.add(sym)
-                candidates.append(sym)
+        candidates = (
+            SCREENER_PRIME_INDIAN[:8] +
+            SCREENER_PRIME_CRYPTO[:6] +
+            SCREENER_PRIME_US[:6] +
+            SCREENER_PRIME_COMMODITIES[:4]
+        )
 
     with _SCREENER_LOCK:
         results = []
         
-        # 1. Filter candidates strictly for currently OPEN/LIVE market sessions
-        live_candidates = []
+        # Determine candidate items with market status
+        candidate_items = []
         for sym in candidates:
             status = get_market_status(sym)
-            if status.get("is_open", False):
-                live_candidates.append((sym, status))
+            if live_only and not status.get("is_open", False):
+                continue
+            candidate_items.append((sym, status))
 
-        scanned_live_count = len(live_candidates)
+        scanned_count = len(candidate_items)
 
         def eval_candidate(item):
             sym, status = item
             try:
                 df = fetch_ohlcv(sym, timeframe=timeframe)
-                if df is None or len(df) < 20:
+                if df is None or len(df) < 15:
                     return None
 
-                a = analyze_symbol(df, capital=capital, risk_pct=0.02)
-                
-                # Primary technical confluence score (100% parity with Trade Blueprint gauge)
-                primary_score = int(a.get("confluence_score", 0))
-                scalp_score = int(a.get("scalp_mastery", {}).get("scalp_score", 0))
-                
-                # Strict >80% threshold: either technical confluence >= 80 or scalp score >= 80
-                if primary_score < 80 and scalp_score < 80:
+                curr_p = float(df["Close"].iloc[-1])
+                currency = df.attrs.get("currency", "INR" if ".NS" in sym else "USD")
+                currency_symbol = df.attrs.get("currency_symbol", "₹" if ".NS" in sym else "$")
+
+                # Master 95% Institutional Confluence (100% exact parity with Chart & Confluence Suite)
+                conf = evaluate_master_confluence(df, current_price=curr_p, capital=capital, risk_pct=0.02, symbol=sym)
+                acc_score = int(conf.get("accuracy_score", 0))
+                passed_count = int(conf.get("passed_count", 0))
+
+                # Filter by minimum score threshold (default 60% = at least 2 of 4 pillars)
+                if acc_score < min_score:
                     return None
 
-                # Score displayed in Screener: matches the primary confluence score
-                display_score = primary_score if primary_score >= 80 else scalp_score
-                grade = a.get("signal_grade", "Grade A+")
+                ep = conf.get("execution_plan", {})
+                trade_dir = ep.get("direction", "LONG")
+                action = conf.get("action", "BUY / LONG")
+                grade = conf.get("grade", "GRADE A")
+                badge_color = conf.get("badge_color", "bull")
 
-                rp = a["risk_plan"]
-                currency = df.attrs.get("currency", "USD")
-                currency_symbol = df.attrs.get("currency_symbol", "$")
+                entry_p = round(float(ep.get("entry_price", curr_p)), 2)
+                sl_p = round(float(ep.get("stop_loss", curr_p * 0.98)), 2)
+                t1_p = round(float(ep.get("target_1", curr_p * 1.04)), 2)
+                t2_p = round(float(ep.get("target_2", curr_p * 1.06)), 2)
+                rr_ratio = ep.get("risk_reward_ratio", "1:2.0")
+                qty = int(ep.get("position_quantity", 1))
+                max_loss = round(float(ep.get("capital_risk_amount", 100.0)), 2)
 
-                # Setup identification (Dual-Directional)
-                trade_dir = a.get("trade_direction", "LONG")
-                if trade_dir == "SHORT":
-                    setup_name = "Supply Zone Institutional Rejection"
-                    if scalp_score >= 85 and scalp_score > primary_score:
-                        setup_name = a.get("scalp_mastery", {}).get("archetype", "9/21 EMA Bearish Breakdown Flush")
-                    elif any("Buy-Side" in f["name"] or "Buy-side" in f.get("detail", "") for f in a.get("confluence_factors", []) if f["passed"]):
-                        setup_name = "Liquidity Sweep + Bearish FVG"
-                    elif any("Markdown" in f.get("detail", "") or "Distribution" in f.get("detail", "") for f in a.get("confluence_factors", []) if f["passed"]):
-                        setup_name = "Stage 4 Distribution Breakdown"
-                    elif any("Supply" in f["name"] and f["passed"] for f in a.get("confluence_factors", [])):
-                        setup_name = "Institutional Supply Zone Rejection"
-                else:
-                    setup_name = "Demand Zone Institutional Bounce"
-                    if scalp_score >= 85 and scalp_score > primary_score:
-                        setup_name = a.get("scalp_mastery", {}).get("archetype", "Micro VWAP Momentum Surge")
-                    elif any(f["name"] == "Sell-Side Liquidity Sweep" and f["passed"] for f in a.get("confluence_factors", [])):
-                        setup_name = "Liquidity Sweep + Bullish FVG"
-                    elif any(f["name"] == "Bullish Trend Alignment" and f["passed"] for f in a.get("confluence_factors", [])):
-                        setup_name = "EMA Breakout + Volume Surge"
-                    elif any(f["name"] == "RSI Bullish Momentum" and f["passed"] for f in a.get("confluence_factors", [])):
-                        setup_name = "Momentum Continuation"
+                ms = conf.get("market_structure", {})
+                phase = ms.get("phase", "Accumulation")
+                setup_name = f"{phase} • {action}"
 
+                # Collect active institutional edge badges
+                edges = []
+                fvgs = conf.get("fvgs", [])
+                if fvgs:
+                    edges.append(f"🧬 {len(fvgs)} FVG")
+                fib = conf.get("fib_golden_pocket", {})
+                if fib.get("in_golden_pocket"):
+                    edges.append("🎯 Golden Pocket")
+                elif fib.get("in_ote"):
+                    edges.append("🎯 Fib OTE")
+                rs = conf.get("relative_strength", {})
+                if rs.get("is_leader"):
+                    edges.append("⚡ Leader ★")
+                ttm = conf.get("ttm_squeeze", {})
+                if ttm.get("squeeze_fired"):
+                    edges.append("🔥 Squeeze Fired")
+                elif ttm.get("squeeze_active"):
+                    edges.append("⏳ Coiling")
+                cvd = conf.get("cvd", {})
+                if "ABSORPTION" in cvd.get("divergence", ""):
+                    edges.append("🌊 CVD Absorption")
+                elif "EXHAUSTION" in cvd.get("divergence", ""):
+                    edges.append("⚠️ CVD Exhaustion")
+
+                edge_summary = " + ".join(edges[:3]) if edges else "Structural S/R"
                 sym_cat = status.get("category", get_asset_category(sym))
-                strat_info = a.get("institutional_strategies", {})
-                active_count = strat_info.get("active_count", 0)
-                active_names = strat_info.get("active_names", [])
-                alignment_grade = strat_info.get("alignment_grade", "SCANNING (0/4)")
 
                 return {
                     "symbol": sym,
+                    "display_symbol": sym.replace(".NS", "").replace("-USD", ""),
                     "category": sym_cat,
                     "market": status.get("market", "Live Market"),
-                    "price": round(a["current_price"], 2),
+                    "is_open": status.get("is_open", False),
+                    "status_label": "LIVE" if status.get("is_open") else "CLOSED",
+                    "price": round(curr_p, 2),
                     "currency": currency,
                     "currency_symbol": currency_symbol,
                     "setup": setup_name,
-                    "confluence_score": display_score,
-                    "primary_score": primary_score,
-                    "scalp_score": scalp_score,
+                    "edge_summary": edge_summary,
+                    "confluence_score": acc_score,
+                    "passed_count": passed_count,
+                    "total_criteria": 4,
                     "direction": trade_dir,
-                    "signal": a["signal_type"],
+                    "action": action,
                     "grade": grade,
-                    "strategy_alignment": {
-                        "active_count": active_count,
-                        "total": 4,
-                        "grade": alignment_grade,
-                        "active_names": active_names
-                    },
-                    "quantity": rp["quantity"],
-                    "stop_loss": round(rp["stop_loss"], 2),
-                    "target_1": round(rp["target_1"], 2),
-                    "target_2": round(rp.get("target_2", rp["target_1"] * 1.02), 2),
-                    "max_loss": round(rp["max_loss"], 2),
-                    "profit_t1": round(rp["profit_target_1"], 2)
+                    "badge_color": badge_color,
+                    "entry_price": entry_p,
+                    "stop_loss": sl_p,
+                    "target_1": t1_p,
+                    "target_2": t2_p,
+                    "risk_reward": rr_ratio,
+                    "quantity": qty,
+                    "max_loss": max_loss
                 }
             except Exception:
                 return None
 
-        # Execute live market evaluations concurrently
-        if live_candidates:
-            with ThreadPoolExecutor(max_workers=12) as executor:
-                futures = [executor.submit(eval_candidate, item) for item in live_candidates]
+        # Execute candidate evaluations concurrently
+        if candidate_items:
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = [executor.submit(eval_candidate, item) for item in candidate_items]
                 for f in as_completed(futures):
                     res = f.result()
                     if res:
                         results.append(res)
 
-        # Sort in strictly descending order from highest score to lowest
-        results.sort(key=lambda x: x["confluence_score"], reverse=True)
-        
-        cache_key = (cat, timeframe, capital)
+        # Sort in strictly descending order from highest confluence score to lowest
+        results.sort(key=lambda x: (x["confluence_score"], x["passed_count"]), reverse=True)
+
+        cache_key = (cat, timeframe, capital, live_only, min_score)
         payload = {
             "category": cat,
             "timeframe": timeframe,
-            "scanned_live_count": scanned_live_count,
+            "scanned_count": scanned_count,
+            "live_only": live_only,
+            "min_score": min_score,
             "total_candidates": len(candidates),
             "setups": results,
             "timestamp": time.time()
@@ -483,25 +521,33 @@ async def stream_market_ticks(
 def run_screener(
     capital: float = Query(5000.0, description="Trading capital"),
     timeframe: str = Query("1d", description="Timeframe: 1m, 3m, 5m, 15m, 1h, 4h, 1d"),
-    category: str = Query("all", description="Market category: all, crypto, stocks, commodities")
+    category: str = Query("all", description="Market category: all, crypto, stocks, commodities"),
+    live_only: bool = Query(False, description="Filter only active open market sessions"),
+    min_score: int = Query(60, description="Minimum confluence score threshold (60=2/4, 85=3/4, 95=4/4)")
 ):
     """
     Run multi-asset market screener across Stocks, Commodities, and Crypto.
-    Strictly filters for currently LIVE markets and setups with score >= 80% (Grade A+),
-    ranked in descending order from highest to lowest score.
+    Evaluates master 95% institutional confluence engine with 100% exact math parity,
+    ranked in descending order from highest to lowest confluence score.
     """
     global _SCREENER_CACHE
     cat = (category or "all").lower()
-    cache_key = (cat, timeframe, capital)
+    cache_key = (cat, timeframe, capital, live_only, min_score)
     now = time.time()
     
     if cache_key in _SCREENER_CACHE:
         cached = _SCREENER_CACHE[cache_key]
-        if (now - cached.get("timestamp", 0)) < 45.0:
+        if (now - cached.get("timestamp", 0)) < 30.0:
             return cached
 
-    payload = refresh_screener_cache(capital=capital, timeframe=timeframe, category=cat)
-    return payload or {"category": cat, "timeframe": timeframe, "scanned_live_count": 0, "setups": []}
+    payload = refresh_screener_cache(
+        capital=capital,
+        timeframe=timeframe,
+        category=cat,
+        live_only=live_only,
+        min_score=min_score
+    )
+    return payload or {"category": cat, "timeframe": timeframe, "scanned_count": 0, "setups": []}
 
 
 if __name__ == "__main__":
