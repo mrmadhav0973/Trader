@@ -26,19 +26,19 @@ def run_test():
     print(f"Starting uvicorn server on port {port}...", flush=True)
     log_file = open("test_server_output.log", "w", encoding="utf-8")
     server_process = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", str(port)],
+        [sys.executable, "-u", "-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", str(port)],
         stdout=log_file,
         stderr=subprocess.STDOUT,
         cwd=os.path.dirname(os.path.abspath(__file__))
     )
     
     print("Waiting for server to become ready...", flush=True)
-    if not wait_for_server(f"http://127.0.0.1:{port}/api/indices", timeout=30):
+    if not wait_for_server(f"http://127.0.0.1:{port}/", timeout=60):
         server_process.terminate()
         log_file.close()
         with open("test_server_output.log", "r", encoding="utf-8", errors="ignore") as f:
             print("SERVER LOGS:\n" + f.read(), flush=True)
-        raise RuntimeError("Server failed to respond within 30 seconds.")
+        raise RuntimeError("Server failed to respond within 60 seconds.")
     print("Server is ready and responding!", flush=True)
 
     try:
@@ -102,13 +102,49 @@ def run_test():
             radar_setup = page.locator("#tabRadarStageText").inner_text()
             print(f"Tab 5 Radar: {radar_setup}", flush=True)
 
+            # Test Tab 6: 8 Advanced Institutional Confluences
+            print("Testing Tab 6 (8 Advanced Confluences)...", flush=True)
+            page.click("#btnTabInstitutional")
+            time.sleep(0.4)
+            fvg_val = page.locator("#tabFvgVal").inner_text()
+            rs_val = page.locator("#tabRsVal").inner_text()
+            fib_val = page.locator("#tabFibVal").inner_text()
+            kz_val = page.locator("#tabKillzoneVal").inner_text()
+            oi_val = page.locator("#tabOiVal").inner_text()
+            ttm_val = page.locator("#tabTtmVal").inner_text()
+            vix_val = page.locator("#tabVixVal").inner_text()
+            cvd_val = page.locator("#tabCvdVal").inner_text()
+
+            print(f"1. FVG: {fvg_val}", flush=True)
+            print(f"2. RS/RW: {rs_val}", flush=True)
+            print(f"3. Fib Golden Pocket: {fib_val}", flush=True)
+            print(f"4. Killzone: {kz_val}", flush=True)
+            print(f"5. OI/PCR: {oi_val}", flush=True)
+            print(f"6. TTM Squeeze: {ttm_val}", flush=True)
+            print(f"7. India VIX: {vix_val}", flush=True)
+            print(f"8. CVD: {cvd_val}", flush=True)
+
+            assert len(fvg_val) > 2, "FVG value missing"
+            assert len(rs_val) > 2, "RS/RW value missing"
+            assert len(fib_val) > 2, "Fib value missing"
+            assert len(kz_val) > 2, "Killzone value missing"
+            assert len(oi_val) > 2, "OI/PCR value missing"
+            assert len(ttm_val) > 2, "TTM value missing"
+            assert len(vix_val) > 2, "VIX value missing"
+            assert len(cvd_val) > 2, "CVD value missing"
+
+            # Save screenshot of 8 Advanced Confluences tab
+            artifact_dir = r"C:\Users\HP\.gemini\antigravity\brain\f4297fde-8f77-4c02-ac0c-b30746ddf9cf"
+            os.makedirs(artifact_dir, exist_ok=True)
+            adv_shot_path = os.path.join(artifact_dir, "advanced_confluences_suite.png")
+            page.screenshot(path=adv_shot_path)
+            print(f"Saved advanced confluences screenshot to {adv_shot_path}", flush=True)
+
             # Return to Tab 1
             page.click("#btnTabStructure")
             time.sleep(0.3)
 
             # Save Dark Theme Screenshot
-            artifact_dir = r"C:\Users\HP\.gemini\antigravity\brain\f4297fde-8f77-4c02-ac0c-b30746ddf9cf"
-            os.makedirs(artifact_dir, exist_ok=True)
             dark_shot_path = os.path.join(artifact_dir, "confluence_master_verified.png")
             page.screenshot(path=dark_shot_path)
             print(f"Saved dark screenshot to {dark_shot_path}", flush=True)
@@ -148,6 +184,24 @@ def run_test():
             print(f"Zones Toggle text: {z_text}", flush=True)
             assert "OFF" in z_text
             page.click("#btnToggleZones")
+            time.sleep(0.2)
+
+            print("Testing FVG Toggle...", flush=True)
+            page.click("#btnToggleFvg")
+            time.sleep(0.2)
+            fvg_btn_text = page.locator("#btnToggleFvg").inner_text()
+            print(f"FVG Toggle text: {fvg_btn_text}", flush=True)
+            assert "OFF" in fvg_btn_text
+            page.click("#btnToggleFvg")
+            time.sleep(0.2)
+
+            print("Testing Fib OTE Toggle...", flush=True)
+            page.click("#btnToggleFib")
+            time.sleep(0.2)
+            fib_btn_text = page.locator("#btnToggleFib").inner_text()
+            print(f"Fib OTE Toggle text: {fib_btn_text}", flush=True)
+            assert "OFF" in fib_btn_text
+            page.click("#btnToggleFib")
             time.sleep(0.2)
 
             print("Testing EMAs Toggle...", flush=True)

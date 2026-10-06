@@ -152,7 +152,7 @@ class RealTimeStreamEngine:
                 },
                 "tape_history": state["tape_history"][:5],
                 "breakout_radar": detect_breakout_confirmation(state.get("df"), current_price=curr_p),
-                "confluence": evaluate_master_confluence(state.get("df"), current_price=curr_p, capital=state["capital"], risk_pct=state["risk_pct"]),
+                "confluence": evaluate_master_confluence(state.get("df"), current_price=curr_p, capital=state["capital"], risk_pct=state["risk_pct"], symbol=state.get("symbol")),
                 "timestamp": int(time.time())
             }
 
@@ -356,7 +356,7 @@ class RealTimeStreamEngine:
             },
             "tape_history": state["tape_history"][:5],
             "breakout_radar": detect_breakout_confirmation(state.get("df"), current_price=new_price),
-            "confluence": evaluate_master_confluence(state.get("df"), current_price=new_price, capital=state["capital"], risk_pct=state["risk_pct"]),
+            "confluence": evaluate_master_confluence(state.get("df"), current_price=new_price, capital=state["capital"], risk_pct=state["risk_pct"], symbol=state.get("symbol")),
             "timestamp": int(time.time())
         }
 

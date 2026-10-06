@@ -34,13 +34,24 @@ from core.smc import (
     detect_liquidity_sweeps
 )
 from core.breakout import detect_breakout_confirmation
+from core.advanced_confluence import (
+    detect_fair_value_gaps as detect_advanced_fvgs,
+    calculate_fibonacci_golden_pocket,
+    calculate_relative_strength,
+    get_session_killzone,
+    calculate_oi_pcr_cluster,
+    calculate_ttm_squeeze,
+    get_vix_regime,
+    calculate_cumulative_volume_delta
+)
 
 
 def evaluate_master_confluence(
     df: pd.DataFrame,
     current_price: Optional[float] = None,
     capital: float = 5000.0,
-    risk_pct: float = 0.02
+    risk_pct: float = 0.02,
+    symbol: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Run comprehensive institutional analysis across all 8 masterclass dimensions
@@ -58,6 +69,8 @@ def evaluate_master_confluence(
 
     c_sym = df.attrs.get("currency_symbol", "₹") if hasattr(df, "attrs") else "₹"
     curr_p = float(current_price) if current_price is not None else float(df["Close"].iloc[-1])
+    if symbol is None:
+        symbol = getattr(df, "attrs", {}).get("resolved_symbol", getattr(df, "attrs", {}).get("symbol", "TATAPOWER.NS")) if hasattr(df, "attrs") else "TATAPOWER.NS"
 
     # Ensure all indicators are attached
     if "EMA_20" not in df.columns or "VWAP" not in df.columns:
@@ -73,6 +86,16 @@ def evaluate_master_confluence(
     sweeps = detect_liquidity_sweeps(df, swing_highs, swing_lows, lookback_bars=15)
     rsi_div = detect_rsi_divergences(df, swing_highs, swing_lows)
     breakout_radar = detect_breakout_confirmation(df, current_price=curr_p)
+
+    # 3. 8 Advanced Institutional & Quantitative Confluences
+    fvgs = detect_advanced_fvgs(df)
+    fib_data = calculate_fibonacci_golden_pocket(df, swing_highs, swing_lows)
+    rs_data = calculate_relative_strength(symbol, df)
+    killzone_data = get_session_killzone(symbol)
+    oi_data = calculate_oi_pcr_cluster(symbol, curr_p)
+    ttm_data = calculate_ttm_squeeze(df)
+    vix_data = get_vix_regime()
+    cvd_data = calculate_cumulative_volume_delta(df)
 
     # Latest Candle Metrics
     last_row = df.iloc[-1]
@@ -258,35 +281,47 @@ def evaluate_master_confluence(
     dist_to_supply = min([abs(curr_p - z["mid_price"]) / curr_p * 100 for z in supply_zones]) if supply_zones else 999.0
     dist_to_vwap = abs(curr_p - vwap) / curr_p * 100
 
+    in_fvg = any(f.get("in_gap", False) for f in fvgs)
+    in_fib_gp = fib_data.get("in_golden_pocket", False)
+    in_fib_ote = fib_data.get("in_ote", False)
+
     if overall_long:
-        p2_passed = dist_to_demand <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015)
+        p2_passed = dist_to_demand <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote
         demand_str = f"{c_sym}{nearest_demand['low_price']:.2f} - {c_sym}{nearest_demand['high_price']:.2f}" if nearest_demand else "Macro Base"
-        p2_detail = f"At High-Value Zone: Price within {min(dist_to_demand, dist_to_vwap):.2f}% of Institutional Demand Zone ({demand_str}) / VWAP ({c_sym}{vwap:.2f})." if p2_passed else f"Chasing in no-man's land: Price is {dist_to_demand:.2f}% away from nearest Demand Zone."
+        extra_zone = " • At Fib Golden Pocket (0.618-0.786)" if in_fib_gp else (" • Inside Bullish FVG Imbalance" if in_fvg else "")
+        p2_detail = f"At High-Value Zone: Price within {min(dist_to_demand, dist_to_vwap):.2f}% of Institutional Demand Zone ({demand_str}) / VWAP ({c_sym}{vwap:.2f}){extra_zone}." if p2_passed else f"Chasing in no-man's land: Price is {dist_to_demand:.2f}% away from nearest Demand Zone."
     else:
-        p2_passed = dist_to_supply <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015)
+        p2_passed = dist_to_supply <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote
         supply_str = f"{c_sym}{nearest_supply['low_price']:.2f} - {c_sym}{nearest_supply['high_price']:.2f}" if nearest_supply else "Overhead Resistance"
-        p2_detail = f"At High-Value Zone: Price within {min(dist_to_supply, dist_to_vwap):.2f}% of Overhead Supply Zone ({supply_str}) / VWAP ({c_sym}{vwap:.2f})." if p2_passed else f"Stretched from supply: Price is {dist_to_supply:.2f}% away from nearest Supply Zone."
+        extra_zone = " • At Fib Golden Pocket (0.618-0.786)" if in_fib_gp else (" • Inside Bearish FVG Imbalance" if in_fvg else "")
+        p2_detail = f"At High-Value Zone: Price within {min(dist_to_supply, dist_to_vwap):.2f}% of Overhead Supply Zone ({supply_str}) / VWAP ({c_sym}{vwap:.2f}){extra_zone}." if p2_passed else f"Stretched from supply: Price is {dist_to_supply:.2f}% away from nearest Supply Zone."
 
     checklist.append({
         "id": "value_zone",
         "title": "2. Value Area / Institutional Zone",
-        "subtitle": "Demand/Supply Zones, S-R Flip, VWAP",
+        "subtitle": "Demand/Supply Zones, FVG & Fib Golden Pocket",
         "passed": bool(p2_passed),
         "detail": p2_detail
     })
 
     # Point 3: Confirmation Trigger
+    has_cvd_bull_absorption = "BULLISH CVD ABSORPTION" in cvd_data.get("divergence", "")
+    has_cvd_bear_exhaustion = "BEARISH CVD EXHAUSTION" in cvd_data.get("divergence", "")
+    has_ttm_fire = ttm_data.get("squeeze_fired", False)
+
     if overall_long:
-        p3_passed = is_hammer or is_engulfing_bull or rsi_div.get("bullish_divergence") or trap_type == "BULLISH LIQUIDITY SWEEP" or breakout_radar.get("stage") == "CONFIRMED"
-        p3_detail = f"Confirmed Price Action Trigger: {candle_name} printed with {lower_wick_pct:.0f}% absorption wick. {vsa_verdict}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive reversal candle or sweep yet. Current bar: {candle_name}."
+        p3_passed = is_hammer or is_engulfing_bull or rsi_div.get("bullish_divergence") or trap_type == "BULLISH LIQUIDITY SWEEP" or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bull_absorption or has_ttm_fire
+        extra_trig = " • [CVD Bullish Absorption Confirmed]" if has_cvd_bull_absorption else (" • [TTM Squeeze Fired]" if has_ttm_fire else "")
+        p3_detail = f"Confirmed Price Action Trigger: {candle_name} printed with {lower_wick_pct:.0f}% absorption wick. {vsa_verdict}{extra_trig}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive reversal candle or sweep yet. Current bar: {candle_name}."
     else:
-        p3_passed = is_shooting_star or is_engulfing_bear or rsi_div.get("bearish_divergence") or trap_active or breakout_radar.get("stage") == "CONFIRMED"
-        p3_detail = f"Confirmed Price Action Trigger: {candle_name} with {upper_wick_pct:.0f}% supply rejection. {trap_type if trap_active else vsa_verdict}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive supply rejection yet. Current bar: {candle_name}."
+        p3_passed = is_shooting_star or is_engulfing_bear or rsi_div.get("bearish_divergence") or trap_active or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bear_exhaustion or has_ttm_fire
+        extra_trig = " • [CVD Bearish Exhaustion Confirmed]" if has_cvd_bear_exhaustion else (" • [TTM Squeeze Fired]" if has_ttm_fire else "")
+        p3_detail = f"Confirmed Price Action Trigger: {candle_name} with {upper_wick_pct:.0f}% supply rejection. {trap_type if trap_active else vsa_verdict}{extra_trig}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive supply rejection yet. Current bar: {candle_name}."
 
     checklist.append({
         "id": "confirmation_trigger",
         "title": "3. Price Action & Volume Trigger",
-        "subtitle": "Candle Anatomy, VSA & Liquidity Trap",
+        "subtitle": "Candle Anatomy, VSA, CVD & Squeeze",
         "passed": bool(p3_passed),
         "detail": p3_detail
     })
@@ -346,6 +381,12 @@ def evaluate_master_confluence(
         badge_color = "neutral"
         action = "WAIT / PRESERVE CAPITAL"
         verdict = "Insufficient Confluence. Market is consolidating or out of zone. Cash is a position; preserve capital until high-probability alignment occurs."
+
+    # Time-of-Day & Order Flow Nuances
+    if killzone_data.get("is_dead_zone"):
+        verdict += " ⚠️ TIME-OF-DAY ADVISORY: Currently in Midday Lunch Chop Dead Zone (11:30 - 13:30 IST). Option theta decay & false breakout risk."
+    elif has_cvd_bear_exhaustion and overall_long:
+        verdict += " ⚠️ ORDER FLOW WARNING: Bearish CVD exhaustion detected (aggressive buyers drying up)."
 
     # Position Sizing
     max_risk_amount = round(capital * risk_pct, 2)
@@ -417,5 +458,23 @@ def evaluate_master_confluence(
             "position_quantity": position_qty,
             "capital_protection_rule": f"Risk capped at {risk_pct*100:.0f}% of {c_sym}{capital:,.0f} ({c_sym}{max_risk_amount:.2f}). Never move Stop Loss away from price."
         },
-        "all_sr_zones": sr_zones
+        "all_sr_zones": sr_zones,
+        "fvgs": fvgs,
+        "fib_golden_pocket": fib_data,
+        "relative_strength": rs_data,
+        "session_killzone": killzone_data,
+        "oi_cluster": oi_data,
+        "ttm_squeeze": ttm_data,
+        "vix_regime": vix_data,
+        "cvd": cvd_data,
+        "advanced_confluence": {
+            "fvgs": fvgs,
+            "fib_golden_pocket": fib_data,
+            "relative_strength": rs_data,
+            "session_killzone": killzone_data,
+            "oi_cluster": oi_data,
+            "ttm_squeeze": ttm_data,
+            "vix_regime": vix_data,
+            "cvd": cvd_data
+        }
     }

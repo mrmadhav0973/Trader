@@ -838,6 +838,18 @@
       .conf-grid-3 { grid-template-columns: 1fr; }
     }
 
+    .conf-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 1100px) {
+      .conf-grid-4 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 650px) {
+      .conf-grid-4 { grid-template-columns: 1fr; }
+    }
+
     .conf-detail-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
@@ -1297,6 +1309,7 @@
           <button class="conf-tab-btn" id="btnTabIndicators" onclick="switchConfTab('tabIndicators', this)">📈 Indicators & Divergence</button>
           <button class="conf-tab-btn" id="btnTabMultiTf" onclick="switchConfTab('tabMultiTf', this)">⏱️ Multi-TF Triad</button>
           <button class="conf-tab-btn" id="btnTabBreakout" onclick="switchConfTab('tabBreakout', this)">⚡ Breakout Radar</button>
+          <button class="conf-tab-btn" id="btnTabInstitutional" onclick="switchConfTab('tabInstitutional', this)">🧬 8 Advanced Confluences</button>
         </div>
 
         <!-- Tab 1: Market Structure & S/R Zones -->
@@ -1399,6 +1412,67 @@
           </div>
         </div>
 
+        <!-- Tab 6: 8 Advanced Institutional & Quantitative Confluences -->
+        <div class="conf-tab-pane" id="tabInstitutional">
+          <div class="conf-grid-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-bottom: 12px;">
+            <!-- Edge 1: Fair Value Gaps (FVG) -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Fair Value Gaps (FVG)</span><span id="tabFvgBadge" class="brand-badge">IMBALANCE</span></div>
+              <div class="conf-card-val" id="tabFvgVal">Scanning Gaps...</div>
+              <div class="conf-card-sub" id="tabFvgSub">50% Consequent Encroachment (CE) & active mitigation</div>
+            </div>
+
+            <!-- Edge 2: Relative Strength vs Benchmark -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Relative Strength (RS/RW)</span><span id="tabRsBadge" class="brand-badge">BENCHMARK</span></div>
+              <div class="conf-card-val" id="tabRsVal">Comparing vs Index...</div>
+              <div class="conf-card-sub" id="tabRsSub">Alpha divergence vs NIFTY 50 / Crypto benchmark</div>
+            </div>
+
+            <!-- Edge 3: Fibonacci Golden Pocket (0.618 - 0.786) -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Fibonacci Golden Pocket</span><span id="tabFibBadge" class="brand-badge">OTE 0.705</span></div>
+              <div class="conf-card-val" id="tabFibVal">Calculating Swings...</div>
+              <div class="conf-card-sub" id="tabFibSub">Optimal Trade Entry (0.618 - 0.786) impulse zone</div>
+            </div>
+
+            <!-- Edge 4: Session Killzones & Time Filter -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Market Session Killzone</span><span id="tabKillzoneBadge" class="brand-badge">TIME WINDOW</span></div>
+              <div class="conf-card-val" id="tabKillzoneVal">Evaluating IST/UTC...</div>
+              <div class="conf-card-sub" id="tabKillzoneSub">Morning Drive vs Midday Lunch Chop Filter</div>
+            </div>
+
+            <!-- Edge 5: Open Interest (OI) & Derivatives Cluster -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Open Interest (OI) & PCR</span><span id="tabOiBadge" class="brand-badge">DERIVATIVES</span></div>
+              <div class="conf-card-val" id="tabOiVal">Call/Put Walls...</div>
+              <div class="conf-card-sub" id="tabOiSub">Put-Call Ratio (PCR) & institutional strike pain</div>
+            </div>
+
+            <!-- Edge 6: TTM Volatility Squeeze -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>TTM Volatility Squeeze</span><span id="tabTtmBadge" class="brand-badge">BB vs KC</span></div>
+              <div class="conf-card-val" id="tabTtmVal">Analyzing Energy...</div>
+              <div class="conf-card-sub" id="tabTtmSub">Bollinger Bands contracting inside Keltner Channels</div>
+            </div>
+
+            <!-- Edge 7: India VIX Volatility Regime -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>India VIX Regime</span><span id="tabVixBadge" class="brand-badge">REGIME</span></div>
+              <div class="conf-card-val" id="tabVixVal">Checking VIX...</div>
+              <div class="conf-card-sub" id="tabVixSub">Volatility environment risk sizing adjustment</div>
+            </div>
+
+            <!-- Edge 8: Cumulative Volume Delta (CVD) -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Cumulative Volume Delta (CVD)</span><span id="tabCvdBadge" class="brand-badge">ORDER FLOW</span></div>
+              <div class="conf-card-val" id="tabCvdVal">Tracking Delta...</div>
+              <div class="conf-card-sub" id="tabCvdSub">Aggressive buying/selling absorption & exhaustion divergences</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Human Discipline Wisdom & Execution Numbers -->
         <div class="radar-footer-grid">
           <div class="discipline-rule-box">
@@ -1465,6 +1539,8 @@
         <!-- Floating Controls Toolbar -->
         <div class="tv-floating-toolbar">
           <button class="tv-btn active" id="btnToggleZones" onclick="toggleZones()" title="Toggle S/R Demand & Supply Zones">🛡️ Zones: ON</button>
+          <button class="tv-btn active" id="btnToggleFvg" onclick="toggleFvg()" title="Toggle Fair Value Gaps (FVG) & 50% CE Imbalance">🧬 FVG: ON</button>
+          <button class="tv-btn active" id="btnToggleFib" onclick="toggleFib()" title="Toggle Fibonacci Golden Pocket & OTE (0.618-0.786)">🎯 Fib OTE: ON</button>
           <button class="tv-btn active" id="btnToggleEmas" onclick="toggleEmas()" title="Toggle EMA 20, 50, 200 Ribbon">📈 EMAs: ON</button>
           <button class="tv-btn active" id="btnToggleVwap" onclick="toggleVwap()" title="Toggle Anchored VWAP Line">⚡ VWAP: ON</button>
           <button class="tv-btn active" id="btnToggleSignals" onclick="toggleSignals()" title="Toggle Signal Arrows & Pattern Markers">🏷️ Signals: ON</button>
@@ -1519,6 +1595,8 @@
     let activeConfTab = 'tabStructure';
     let showChartPriceLines = true;
     let showZones = true;
+    let showFvg = true;
+    let showFib = true;
     let showEmas = true;
     let showVwap = true;
     let showSignals = true;
@@ -1615,6 +1693,28 @@
         btn.textContent = `🛡️ Zones: ${showZones ? 'ON' : 'OFF'}`;
         btn.classList.toggle('active', showZones);
         btn.classList.toggle('off', !showZones);
+      }
+      renderZonesOverlay();
+    }
+
+    function toggleFvg() {
+      showFvg = !showFvg;
+      const btn = document.getElementById('btnToggleFvg');
+      if (btn) {
+        btn.textContent = `🧬 FVG: ${showFvg ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showFvg);
+        btn.classList.toggle('off', !showFvg);
+      }
+      renderZonesOverlay();
+    }
+
+    function toggleFib() {
+      showFib = !showFib;
+      const btn = document.getElementById('btnToggleFib');
+      if (btn) {
+        btn.textContent = `🎯 Fib OTE: ${showFib ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showFib);
+        btn.classList.toggle('off', !showFib);
       }
       renderZonesOverlay();
     }
@@ -1867,6 +1967,121 @@
           }
         }
       }
+
+      // 3. Fair Value Gaps (FVG) Imbalance Overlay
+      const fvgs = (currentData && currentData.fvgs && currentData.fvgs.length > 0)
+        ? currentData.fvgs
+        : (currentConfluence && currentConfluence.fvgs ? currentConfluence.fvgs : []);
+
+      if (showFvg && fvgs && fvgs.length > 0) {
+        fvgs.forEach((f, idx) => {
+          if (!f || isNaN(f.top) || isNaN(f.bottom)) return;
+          const yTop = tvCandleSeries.priceToCoordinate(f.top);
+          const yBottom = tvCandleSeries.priceToCoordinate(f.bottom);
+          const yMid = (f.mid_ce !== undefined) ? tvCandleSeries.priceToCoordinate(f.mid_ce) : null;
+          if (yTop === null || yBottom === null) return;
+
+          const boxTop = Math.min(yTop, yBottom);
+          const boxH = Math.max(8, Math.abs(yBottom - yTop));
+          if (boxTop + boxH < -20 || boxTop > height + 20) return;
+
+          const isBull = (f.type === 'BULLISH');
+          // Shaded box: Cyan for Bullish FVG, Orange for Bearish FVG
+          ctx.fillStyle = isBull ? 'rgba(6, 182, 212, 0.12)' : 'rgba(249, 115, 22, 0.12)';
+          ctx.fillRect(0, boxTop, chartPlotWidth, boxH);
+
+          // Dashed Boundaries
+          ctx.save();
+          ctx.strokeStyle = isBull ? 'rgba(6, 182, 212, 0.70)' : 'rgba(249, 115, 22, 0.70)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.strokeRect(0, boxTop, chartPlotWidth, boxH);
+
+          // 50% Consequent Encroachment (CE) Line
+          if (yMid !== null && yMid >= boxTop && yMid <= boxTop + boxH) {
+            ctx.strokeStyle = isBull ? 'rgba(6, 182, 212, 0.90)' : 'rgba(249, 115, 22, 0.90)';
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.moveTo(0, yMid);
+            ctx.lineTo(chartPlotWidth, yMid);
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // FVG Label Pill
+          const fvgLabel = isBull 
+            ? `🧬 BULL FVG • CE: ${cSym}${Number(f.mid_ce || (f.top+f.bottom)/2).toFixed(1)} [${cSym}${Number(f.bottom).toFixed(1)} - ${cSym}${Number(f.top).toFixed(1)}]`
+            : `🧬 BEAR FVG • CE: ${cSym}${Number(f.mid_ce || (f.top+f.bottom)/2).toFixed(1)} [${cSym}${Number(f.bottom).toFixed(1)} - ${cSym}${Number(f.top).toFixed(1)}]`;
+
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          const fvgTw = ctx.measureText(fvgLabel).width;
+          const fvgBadgeH = 15;
+          const fvgBadgeY = Math.max(boxTop + 2, Math.min(boxTop + (boxH - fvgBadgeH)/2, height - fvgBadgeH - 4));
+          const fvgBadgeX = Math.min(chartPlotWidth - fvgTw - 20, 220 + (idx * 15));
+
+          ctx.fillStyle = isBull ? 'rgba(8, 51, 68, 0.90)' : 'rgba(67, 20, 7, 0.90)';
+          ctx.fillRect(fvgBadgeX, fvgBadgeY, fvgTw + 12, fvgBadgeH);
+          ctx.strokeStyle = isBull ? '#06B6D4' : '#F97316';
+          ctx.strokeRect(fvgBadgeX, fvgBadgeY, fvgTw + 12, fvgBadgeH);
+          ctx.fillStyle = isBull ? '#A5F3FC' : '#FED7AA';
+          ctx.fillText(fvgLabel, fvgBadgeX + 6, fvgBadgeY + 11);
+        });
+      }
+
+      // 4. Fibonacci Golden Pocket (0.618 - 0.786) & OTE (0.705) Overlay
+      const fib = (currentData && currentData.fib_golden_pocket && currentData.fib_golden_pocket.active)
+        ? currentData.fib_golden_pocket
+        : (currentConfluence && currentConfluence.fib_golden_pocket && currentConfluence.fib_golden_pocket.active ? currentConfluence.fib_golden_pocket : null);
+
+      if (showFib && fib && fib.active && !isNaN(fib.golden_pocket_top) && !isNaN(fib.golden_pocket_bottom)) {
+        const yFibTop = tvCandleSeries.priceToCoordinate(fib.golden_pocket_top);
+        const yFibBottom = tvCandleSeries.priceToCoordinate(fib.golden_pocket_bottom);
+        const yFibOte = fib.fib_705 ? tvCandleSeries.priceToCoordinate(fib.fib_705) : null;
+
+        if (yFibTop !== null && yFibBottom !== null) {
+          const gpTop = Math.min(yFibTop, yFibBottom);
+          const gpH = Math.max(10, Math.abs(yFibBottom - yFibTop));
+
+          if (gpTop + gpH >= -20 && gpTop <= height + 20) {
+            // Shaded Golden Pocket Zone
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+            ctx.fillRect(0, gpTop, chartPlotWidth, gpH);
+
+            // Dashed boundaries
+            ctx.save();
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.75)';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([5, 4]);
+            ctx.strokeRect(0, gpTop, chartPlotWidth, gpH);
+
+            // Optimal Trade Entry (OTE 0.705) dashed centerline
+            if (yFibOte !== null && yFibOte >= gpTop && yFibOte <= gpTop + gpH) {
+              ctx.strokeStyle = 'rgba(234, 179, 8, 0.95)';
+              ctx.setLineDash([3, 2]);
+              ctx.beginPath();
+              ctx.moveTo(0, yFibOte);
+              ctx.lineTo(chartPlotWidth, yFibOte);
+              ctx.stroke();
+            }
+            ctx.restore();
+
+            // Golden Pocket Badge
+            const fibBadge = `🎯 FIB GOLDEN POCKET (0.618-0.786) • OTE: ${cSym}${Number(fib.fib_705).toFixed(1)} [${cSym}${Number(fib.golden_pocket_bottom).toFixed(1)} - ${cSym}${Number(fib.golden_pocket_top).toFixed(1)}]`;
+            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            const fibTw = ctx.measureText(fibBadge).width;
+            const fibBadgeH = 15;
+            const fibBadgeY = Math.max(gpTop + 2, Math.min(gpTop + (gpH - fibBadgeH)/2, height - fibBadgeH - 4));
+            const fibBadgeX = Math.max(20, chartPlotWidth - fibTw - 280);
+
+            ctx.fillStyle = 'rgba(69, 26, 3, 0.90)';
+            ctx.fillRect(fibBadgeX, fibBadgeY, fibTw + 12, fibBadgeH);
+            ctx.strokeStyle = '#F59E0B';
+            ctx.strokeRect(fibBadgeX, fibBadgeY, fibTw + 12, fibBadgeH);
+            ctx.fillStyle = '#FDE68A';
+            ctx.fillText(fibBadge, fibBadgeX + 6, fibBadgeY + 11);
+          }
+        }
+      }
     }
 
     function updateChartPriceLines(conf) {
@@ -2075,6 +2290,106 @@
         if (rAdvice) rAdvice.textContent = radar.action_advice;
         if (rPillars) rPillars.textContent = `Confluence: ${radar.passed_count || 0}/4 Factors Passed`;
         if (rRule) rRule.textContent = radar.human_discipline_rule;
+      }
+
+      // 8. Tab 6: 8 Advanced Institutional Confluences
+      if (conf.advanced_confluence || conf.fvgs) {
+        const adv = conf.advanced_confluence || {};
+        const fvgs = conf.fvgs || adv.fvgs || [];
+        const fib = conf.fib_golden_pocket || adv.fib_golden_pocket || {};
+        const rs = conf.relative_strength || adv.relative_strength || {};
+        const kz = conf.session_killzone || adv.session_killzone || {};
+        const oi = conf.oi_cluster || adv.oi_cluster || {};
+        const ttm = conf.ttm_squeeze || adv.ttm_squeeze || {};
+        const vix = conf.vix_regime || adv.vix_regime || {};
+        const cvd = conf.cvd || adv.cvd || {};
+
+        // Edge 1: FVG
+        const tabFvgBadge = document.getElementById('tabFvgBadge');
+        const tabFvgVal = document.getElementById('tabFvgVal');
+        const tabFvgSub = document.getElementById('tabFvgSub');
+        if (tabFvgVal) {
+          if (fvgs.length > 0) {
+            const activeFvg = fvgs[fvgs.length - 1];
+            tabFvgVal.textContent = `${fvgs.length} Active Gaps (${activeFvg.type})`;
+            if (tabFvgSub) tabFvgSub.textContent = `CE Midpoint: ${cSym}${activeFvg.mid_ce} | Range: [${cSym}${activeFvg.bottom} - ${cSym}${activeFvg.top}]`;
+            if (tabFvgBadge) tabFvgBadge.textContent = activeFvg.in_gap ? 'INSIDE GAP' : 'UNTESTED';
+          } else {
+            tabFvgVal.textContent = 'No Unmitigated Imbalances';
+            if (tabFvgSub) tabFvgSub.textContent = 'Price action is balanced; efficiency maintained.';
+            if (tabFvgBadge) tabFvgBadge.textContent = 'BALANCED';
+          }
+        }
+
+        // Edge 2: RS/RW
+        const tabRsBadge = document.getElementById('tabRsBadge');
+        const tabRsVal = document.getElementById('tabRsVal');
+        const tabRsSub = document.getElementById('tabRsSub');
+        if (tabRsVal) {
+          tabRsVal.textContent = rs.status || 'In-Line with Benchmark';
+          if (tabRsSub) tabRsSub.textContent = rs.detail || `Relative Strength Score: ${rs.rs_score}`;
+          if (tabRsBadge) tabRsBadge.textContent = rs.is_leader ? 'LEADER ★' : (rs.bias || 'NEUTRAL');
+        }
+
+        // Edge 3: Fibonacci Golden Pocket
+        const tabFibBadge = document.getElementById('tabFibBadge');
+        const tabFibVal = document.getElementById('tabFibVal');
+        const tabFibSub = document.getElementById('tabFibSub');
+        if (tabFibVal) {
+          tabFibVal.textContent = fib.status || 'Calculating Retracements';
+          if (tabFibSub) tabFibSub.textContent = fib.detail || `Golden Pocket: ${fib.golden_pocket_bottom} - ${fib.golden_pocket_top}`;
+          if (tabFibBadge) tabFibBadge.textContent = fib.in_golden_pocket ? 'IN POCKET ★' : (fib.in_ote ? 'NEAR OTE' : 'NORMAL');
+        }
+
+        // Edge 4: Session Killzone
+        const tabKillzoneBadge = document.getElementById('tabKillzoneBadge');
+        const tabKillzoneVal = document.getElementById('tabKillzoneVal');
+        const tabKillzoneSub = document.getElementById('tabKillzoneSub');
+        if (tabKillzoneVal) {
+          tabKillzoneVal.textContent = kz.killzone_name || 'Market Open';
+          if (tabKillzoneSub) tabKillzoneSub.textContent = `${kz.ist_time || ''} • ${kz.advice || ''}`;
+          if (tabKillzoneBadge) tabKillzoneBadge.textContent = kz.is_dead_zone ? 'DEAD ZONE ⚠️' : (kz.is_active_window ? 'PRIME EXPANSION' : 'STANDARD');
+        }
+
+        // Edge 5: Open Interest & PCR
+        const tabOiBadge = document.getElementById('tabOiBadge');
+        const tabOiVal = document.getElementById('tabOiVal');
+        const tabOiSub = document.getElementById('tabOiSub');
+        if (tabOiVal) {
+          tabOiVal.textContent = oi.sentiment || 'Balanced Range';
+          if (tabOiSub) tabOiSub.textContent = oi.detail || `PCR: ${oi.pcr} | Call Wall: ${oi.call_wall} | Put Wall: ${oi.put_wall}`;
+          if (tabOiBadge) tabOiBadge.textContent = `PCR: ${oi.pcr || 1.0}`;
+        }
+
+        // Edge 6: TTM Volatility Squeeze
+        const tabTtmBadge = document.getElementById('tabTtmBadge');
+        const tabTtmVal = document.getElementById('tabTtmVal');
+        const tabTtmSub = document.getElementById('tabTtmSub');
+        if (tabTtmVal) {
+          tabTtmVal.textContent = ttm.status || 'Normal Volatility';
+          if (tabTtmSub) tabTtmSub.textContent = `${ttm.momentum_direction || 'Momentum'} • ${ttm.detail || ''}`;
+          if (tabTtmBadge) tabTtmBadge.textContent = ttm.code || (ttm.squeeze_active ? 'COILING' : 'EXPANDING');
+        }
+
+        // Edge 7: India VIX
+        const tabVixBadge = document.getElementById('tabVixBadge');
+        const tabVixVal = document.getElementById('tabVixVal');
+        const tabVixSub = document.getElementById('tabVixSub');
+        if (tabVixVal) {
+          tabVixVal.textContent = vix.regime || 'Optimal Technical Regime';
+          if (tabVixSub) tabVixSub.textContent = `${vix.advice || ''} | ${vix.risk_adjustment || ''}`;
+          if (tabVixBadge) tabVixBadge.textContent = `VIX: ${vix.vix_value || 13.25}`;
+        }
+
+        // Edge 8: CVD & Divergence
+        const tabCvdBadge = document.getElementById('tabCvdBadge');
+        const tabCvdVal = document.getElementById('tabCvdVal');
+        const tabCvdSub = document.getElementById('tabCvdSub');
+        if (tabCvdVal) {
+          tabCvdVal.textContent = cvd.divergence || 'Volume Flow In Sync';
+          if (tabCvdSub) tabCvdSub.textContent = `${cvd.latest_cvd_trend || ''} • ${cvd.detail || ''}`;
+          if (tabCvdBadge) tabCvdBadge.textContent = cvd.divergence && cvd.divergence.includes('ABSORPTION') ? 'ABSORPTION ★' : (cvd.divergence && cvd.divergence.includes('EXHAUSTION') ? 'EXHAUSTION ⚠️' : 'IN SYNC');
+        }
       }
 
       // 8. Human Discipline Rule & Execution Numbers

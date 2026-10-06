@@ -341,8 +341,8 @@ def get_analysis(
 
     # Compute breakout & confluence confirmation radar
     radar = detect_breakout_confirmation(df, current_price=curr_price)
-    # Compute master 95% confluence engine
-    confluence = evaluate_master_confluence(df, current_price=curr_price, capital=capital, risk_pct=risk_pct)
+    # Compute master 95% confluence engine with 8 advanced institutional confluences
+    confluence = evaluate_master_confluence(df, current_price=curr_price, capital=capital, risk_pct=risk_pct, symbol=resolved_sym)
 
     # Build TradingView Candlestick Chart Signal Markers
     markers = []
@@ -393,6 +393,9 @@ def get_analysis(
         "vwap": vwap_series,
         "markers": markers,
         "sr_zones": confluence.get("all_sr_zones", []),
+        "fvgs": confluence.get("fvgs", []),
+        "fib_golden_pocket": confluence.get("fib_golden_pocket", {}),
+        "advanced_confluence": confluence.get("advanced_confluence", {}),
         "breakout_radar": radar,
         "confluence": confluence,
         "market_status": get_market_status(resolved_sym)
@@ -432,7 +435,7 @@ def get_confluence(
     """
     try:
         df = fetch_ohlcv(symbol, timeframe=timeframe)
-        return evaluate_master_confluence(df, capital=capital, risk_pct=risk_pct)
+        return evaluate_master_confluence(df, capital=capital, risk_pct=risk_pct, symbol=symbol)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to calculate confluence for {symbol}: {str(e)}")
 
