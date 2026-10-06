@@ -1021,6 +1021,17 @@
       gap: 4px;
       transition: var(--transition-smooth);
     }
+    .tv-btn.active {
+      background: rgba(59, 130, 246, 0.20);
+      border-color: rgba(59, 130, 246, 0.50);
+      color: var(--color-accent-blue);
+    }
+    .tv-btn.off {
+      opacity: 0.55;
+      background: var(--bg-surface);
+      border-color: var(--border-subtle);
+      color: var(--text-muted);
+    }
     .tv-btn:hover {
       background: var(--border-focus);
       color: #FFF;
@@ -1451,9 +1462,13 @@
       <div class="chart-canvas-wrapper" id="chartCanvasWrapper">
         <div class="loading-spinner" id="chartLoader">⚡ Loading Candlesticks...</div>
 
-        <!-- Floating Controls -->
+        <!-- Floating Controls Toolbar -->
         <div class="tv-floating-toolbar">
-          <button class="tv-btn" id="btnToggleChartLevels" onclick="toggleChartPriceLines()" title="Toggle Entry, Stop Loss & Target Price Lines">🎯 Levels: ON</button>
+          <button class="tv-btn active" id="btnToggleZones" onclick="toggleZones()" title="Toggle S/R Demand & Supply Zones">🛡️ Zones: ON</button>
+          <button class="tv-btn active" id="btnToggleEmas" onclick="toggleEmas()" title="Toggle EMA 20, 50, 200 Ribbon">📈 EMAs: ON</button>
+          <button class="tv-btn active" id="btnToggleVwap" onclick="toggleVwap()" title="Toggle Anchored VWAP Line">⚡ VWAP: ON</button>
+          <button class="tv-btn active" id="btnToggleSignals" onclick="toggleSignals()" title="Toggle Signal Arrows & Pattern Markers">🏷️ Signals: ON</button>
+          <button class="tv-btn active" id="btnToggleChartLevels" onclick="toggleChartPriceLines()" title="Toggle Entry, Stop Loss & Target Price Lines">🎯 Levels: ON</button>
           <button class="tv-btn" onclick="fitChartContent()" title="Auto-Fit All Candles">⛶ Auto-Fit</button>
           <button class="tv-btn" onclick="zoomInChart()" title="Zoom In">+</button>
           <button class="tv-btn" onclick="zoomOutChart()" title="Zoom Out">−</button>
@@ -1475,6 +1490,9 @@
 
         <!-- Pure Lightweight Chart Container -->
         <div id="tvChartContainer"></div>
+
+        <!-- Transparent S/R Zones & Position Risk-Reward Box Canvas Overlay -->
+        <canvas id="tvZonesCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
       </div>
     </section>
   </main>
@@ -1500,6 +1518,10 @@
     let isConfluenceDrawerOpen = true;
     let activeConfTab = 'tabStructure';
     let showChartPriceLines = true;
+    let showZones = true;
+    let showEmas = true;
+    let showVwap = true;
+    let showSignals = true;
 
     // Price lines
     let tvEntryLine = null;
@@ -1507,6 +1529,12 @@
     let tvTarget1Line = null;
     let tvTarget2Line = null;
     let tvBreakoutLine = null;
+
+    // Indicator Line Series
+    let tvEma20Series = null;
+    let tvEma50Series = null;
+    let tvEma200Series = null;
+    let tvVwapSeries = null;
 
     // Initialize Theme
     document.documentElement.setAttribute('data-theme', currentTheme);
@@ -1580,14 +1608,264 @@
       if (pane) pane.classList.add('active');
     }
 
+    function toggleZones() {
+      showZones = !showZones;
+      const btn = document.getElementById('btnToggleZones');
+      if (btn) {
+        btn.textContent = `🛡️ Zones: ${showZones ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showZones);
+        btn.classList.toggle('off', !showZones);
+      }
+      renderZonesOverlay();
+    }
+
+    function toggleEmas() {
+      showEmas = !showEmas;
+      const btn = document.getElementById('btnToggleEmas');
+      if (btn) {
+        btn.textContent = `📈 EMAs: ${showEmas ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showEmas);
+        btn.classList.toggle('off', !showEmas);
+      }
+      if (tvEma20Series) tvEma20Series.applyOptions({ visible: showEmas });
+      if (tvEma50Series) tvEma50Series.applyOptions({ visible: showEmas });
+      if (tvEma200Series) tvEma200Series.applyOptions({ visible: showEmas });
+    }
+
+    function toggleVwap() {
+      showVwap = !showVwap;
+      const btn = document.getElementById('btnToggleVwap');
+      if (btn) {
+        btn.textContent = `⚡ VWAP: ${showVwap ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showVwap);
+        btn.classList.toggle('off', !showVwap);
+      }
+      if (tvVwapSeries) tvVwapSeries.applyOptions({ visible: showVwap });
+    }
+
+    function toggleSignals() {
+      showSignals = !showSignals;
+      const btn = document.getElementById('btnToggleSignals');
+      if (btn) {
+        btn.textContent = `🏷️ Signals: ${showSignals ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showSignals);
+        btn.classList.toggle('off', !showSignals);
+      }
+      if (tvCandleSeries && currentData) {
+        tvCandleSeries.setMarkers(showSignals ? (currentData.markers || []) : []);
+      }
+    }
+
     function toggleChartPriceLines() {
       showChartPriceLines = !showChartPriceLines;
       const btn = document.getElementById('btnToggleChartLevels');
       if (btn) {
         btn.textContent = `🎯 Levels: ${showChartPriceLines ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showChartPriceLines);
+        btn.classList.toggle('off', !showChartPriceLines);
       }
       if (currentConfluence) {
         updateChartPriceLines(currentConfluence);
+      }
+      renderZonesOverlay();
+    }
+
+    function renderZonesOverlay() {
+      const canvas = document.getElementById('tvZonesCanvas');
+      const container = document.getElementById('tvChartContainer');
+      if (!canvas || !container || !tvCandleSeries) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      const dpr = window.devicePixelRatio || 1;
+
+      if (width === 0 || height === 0) return;
+
+      if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      // Plot width excludes right vertical price scale (approx 68px)
+      const chartPlotWidth = Math.max(0, width - 68);
+      const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
+
+      // 1. Support & Resistance Zones
+      const zones = (currentData && currentData.sr_zones && currentData.sr_zones.length > 0)
+        ? currentData.sr_zones
+        : (currentConfluence && currentConfluence.all_sr_zones ? currentConfluence.all_sr_zones : []);
+
+      if (showZones && zones && zones.length > 0) {
+        zones.forEach(z => {
+          if (!z || isNaN(z.min_price) || isNaN(z.max_price)) return;
+
+          let yMin = tvCandleSeries.priceToCoordinate(z.min_price);
+          let yMax = tvCandleSeries.priceToCoordinate(z.max_price);
+
+          if (yMin === null && yMax === null) {
+            const yMid = tvCandleSeries.priceToCoordinate(z.mid_price);
+            if (yMid !== null) {
+              yMin = yMid + 8;
+              yMax = yMid - 8;
+            } else {
+              return;
+            }
+          }
+
+          if (yMax === null) yMax = -30;
+          if (yMin === null) yMin = height + 30;
+
+          let topY = Math.min(yMin, yMax);
+          let bottomY = Math.max(yMin, yMax);
+
+          if ((bottomY - topY) < 12) {
+            const mid = (topY + bottomY) / 2;
+            topY = mid - 6;
+            bottomY = mid + 6;
+          }
+
+          if (bottomY < -20 || topY > height + 20) return;
+
+          const isDemand = (z.type === 'support' || z.type === 'DEMAND');
+          const isFlip = !!z.is_flip;
+          const isMajor = (z.strength === 'MAJOR');
+
+          // Shaded Rectangular Zone Box
+          ctx.fillStyle = isFlip 
+            ? 'rgba(245, 158, 11, 0.14)'
+            : (isDemand ? 'rgba(16, 185, 129, 0.13)' : 'rgba(239, 68, 68, 0.13)');
+          ctx.fillRect(0, topY, chartPlotWidth, bottomY - topY);
+
+          // Dashed Top and Bottom Boundaries
+          ctx.save();
+          ctx.strokeStyle = isFlip 
+            ? 'rgba(245, 158, 11, 0.70)'
+            : (isDemand ? 'rgba(16, 185, 129, 0.65)' : 'rgba(239, 68, 68, 0.65)');
+          ctx.lineWidth = isMajor ? 1.5 : 1.0;
+          ctx.setLineDash([5, 4]);
+
+          ctx.beginPath();
+          ctx.moveTo(0, topY);
+          ctx.lineTo(chartPlotWidth, topY);
+          ctx.moveTo(0, bottomY);
+          ctx.lineTo(chartPlotWidth, bottomY);
+          ctx.stroke();
+          ctx.restore();
+
+          // Zone Tag Badge Pill
+          const touchesText = z.touches ? `${z.touches}x` : '3x';
+          let badgeText = '';
+          if (isFlip) {
+            badgeText = `⚡ S-R FLIP POLARITY • ${touchesText} [${cSym}${Number(z.min_price).toFixed(1)} - ${cSym}${Number(z.max_price).toFixed(1)}]`;
+          } else if (isDemand) {
+            badgeText = `🟢 DEMAND ZONE • ${touchesText} [${cSym}${Number(z.min_price).toFixed(1)} - ${cSym}${Number(z.max_price).toFixed(1)}] ${isMajor ? '★ MAJOR' : ''}`;
+          } else {
+            badgeText = `🔴 SUPPLY ZONE • ${touchesText} [${cSym}${Number(z.min_price).toFixed(1)} - ${cSym}${Number(z.max_price).toFixed(1)}] ${isMajor ? '★ MAJOR' : ''}`;
+          }
+
+          ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+          const textMetrics = ctx.measureText(badgeText);
+          const textWidth = textMetrics.width;
+          const badgePaddingX = 6;
+          const badgeHeight = 16;
+          const zoneH = bottomY - topY;
+          let badgeY = Math.max(topY + 2, Math.min(topY + (zoneH - badgeHeight) / 2, height - badgeHeight - 4));
+          if (topY <= 0 && bottomY >= 20) badgeY = 6;
+          else if (bottomY >= height && topY <= height - 20) badgeY = height - badgeHeight - 6;
+          const badgeX = 14;
+
+          // Badge Background Pill
+          ctx.fillStyle = isFlip 
+            ? 'rgba(120, 53, 15, 0.88)'
+            : (isDemand ? 'rgba(6, 78, 59, 0.88)' : 'rgba(127, 29, 29, 0.88)');
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(badgeX, badgeY, textWidth + badgePaddingX * 2, badgeHeight, 3);
+          } else {
+            ctx.rect(badgeX, badgeY, textWidth + badgePaddingX * 2, badgeHeight);
+          }
+          ctx.fill();
+
+          // Badge Border
+          ctx.strokeStyle = isFlip 
+            ? 'rgba(251, 191, 36, 0.9)'
+            : (isDemand ? 'rgba(52, 211, 153, 0.9)' : 'rgba(248, 113, 113, 0.9)');
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Badge Text
+          ctx.fillStyle = isFlip ? '#FDE68A' : (isDemand ? '#A7F3D0' : '#FECACA');
+          ctx.fillText(badgeText, badgeX + badgePaddingX, badgeY + 11.5);
+        });
+      }
+
+      // 2. Position Execution Risk-Reward Shaded Target Area
+      if (showChartPriceLines && currentConfluence && currentConfluence.execution_plan) {
+        const ep = currentConfluence.execution_plan;
+        const yEntry = tvCandleSeries.priceToCoordinate(ep.entry_price);
+        const ySL = tvCandleSeries.priceToCoordinate(ep.stop_loss);
+        const yT1 = tvCandleSeries.priceToCoordinate(ep.target_1);
+
+        if (yEntry !== null) {
+          // Profit Target Area (Green)
+          if (yT1 !== null) {
+            const targetTop = Math.min(yEntry, yT1);
+            const targetH = Math.abs(yEntry - yT1);
+            if (targetH > 2) {
+              ctx.fillStyle = 'rgba(16, 185, 129, 0.09)';
+              ctx.fillRect(0, targetTop, chartPlotWidth, targetH);
+
+              ctx.save();
+              ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+              ctx.setLineDash([4, 4]);
+              ctx.strokeRect(0, targetTop, chartPlotWidth, targetH);
+              ctx.restore();
+
+              const tBadge = `🎯 TARGET 1 (+1:2.0 R:R) • ${cSym}${ep.target_1.toFixed(2)}`;
+              ctx.font = 'bold 9px "JetBrains Mono", monospace';
+              const tw = ctx.measureText(tBadge).width;
+              ctx.fillStyle = 'rgba(6, 78, 59, 0.85)';
+              ctx.fillRect(chartPlotWidth - tw - 24, targetTop + 4, tw + 12, 16);
+              ctx.strokeStyle = '#10B981';
+              ctx.strokeRect(chartPlotWidth - tw - 24, targetTop + 4, tw + 12, 16);
+              ctx.fillStyle = '#A7F3D0';
+              ctx.fillText(tBadge, chartPlotWidth - tw - 18, targetTop + 15);
+            }
+          }
+
+          // Stop Loss Risk Area (Red)
+          if (ySL !== null) {
+            const riskTop = Math.min(yEntry, ySL);
+            const riskH = Math.abs(yEntry - ySL);
+            if (riskH > 2) {
+              ctx.fillStyle = 'rgba(239, 68, 68, 0.09)';
+              ctx.fillRect(0, riskTop, chartPlotWidth, riskH);
+
+              ctx.save();
+              ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+              ctx.setLineDash([4, 4]);
+              ctx.strokeRect(0, riskTop, chartPlotWidth, riskH);
+              ctx.restore();
+
+              const rBadge = `🛑 STOP LOSS RISK • ${cSym}${ep.stop_loss.toFixed(2)}`;
+              ctx.font = 'bold 9px "JetBrains Mono", monospace';
+              const rw = ctx.measureText(rBadge).width;
+              ctx.fillStyle = 'rgba(127, 29, 29, 0.85)';
+              ctx.fillRect(chartPlotWidth - rw - 24, riskTop + 4, rw + 12, 16);
+              ctx.strokeStyle = '#EF4444';
+              ctx.strokeRect(chartPlotWidth - rw - 24, riskTop + 4, rw + 12, 16);
+              ctx.fillStyle = '#FECACA';
+              ctx.fillText(rBadge, chartPlotWidth - rw - 18, riskTop + 15);
+            }
+          }
+        }
       }
     }
 
@@ -1600,46 +1878,63 @@
       if (tvTarget1Line) { try { tvCandleSeries.removePriceLine(tvTarget1Line); } catch(e){} tvTarget1Line = null; }
       if (tvTarget2Line) { try { tvCandleSeries.removePriceLine(tvTarget2Line); } catch(e){} tvTarget2Line = null; }
 
-      if (!showChartPriceLines || !conf || !conf.execution_plan) return;
+      if (!showChartPriceLines || !conf || !conf.execution_plan) {
+        renderZonesOverlay();
+        return;
+      }
 
       const ep = conf.execution_plan;
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
 
-      // Clean Entry Line
+      // 1. ENTRY (Vertical axis text: ENTRY)
       if (ep.entry_price > 0) {
         tvEntryLine = tvCandleSeries.createPriceLine({
           price: ep.entry_price,
           color: '#3B82F6',
-          lineWidth: 1.5,
+          lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `ENTRY: ${cSym}${ep.entry_price.toFixed(2)}`
+          title: 'ENTRY'
         });
       }
 
-      // Clean Stop Loss Line
+      // 2. STOP LOSS (Vertical axis text: SL)
       if (ep.stop_loss > 0) {
         tvStopLossLine = tvCandleSeries.createPriceLine({
           price: ep.stop_loss,
           color: '#EF4444',
-          lineWidth: 1.5,
+          lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `SL: ${cSym}${ep.stop_loss.toFixed(2)}`
+          title: 'SL'
         });
       }
 
-      // Clean Target 1 Line
+      // 3. TARGET 1 / TAKE PROFIT (Vertical axis text: TP)
       if (ep.target_1 > 0) {
         tvTarget1Line = tvCandleSeries.createPriceLine({
           price: ep.target_1,
           color: '#10B981',
-          lineWidth: 1.5,
+          lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `TP1: ${cSym}${ep.target_1.toFixed(2)}`
+          title: 'TP'
         });
       }
+
+      // Runner Target 2 (On chart canvas only; axisLabelVisible: false to prevent axis clutter)
+      if (ep.target_2 > 0) {
+        tvTarget2Line = tvCandleSeries.createPriceLine({
+          price: ep.target_2,
+          color: '#059669',
+          lineWidth: 1.5,
+          lineStyle: LightweightCharts.LineStyle.Dotted,
+          axisLabelVisible: false,
+          title: 'T2'
+        });
+      }
+
+      renderZonesOverlay();
     }
 
     function updateConfluenceUI(conf, radar) {
@@ -1932,6 +2227,52 @@
         wickDownColor: '#EF4444',
       });
 
+      // 1. EMA 20 Series (Cyan)
+      tvEma20Series = tvChart.addLineSeries({
+        color: '#06B6D4',
+        lineWidth: 1.5,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'EMA 20',
+      });
+
+      // 2. EMA 50 Series (Amber)
+      tvEma50Series = tvChart.addLineSeries({
+        color: '#F59E0B',
+        lineWidth: 1.5,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'EMA 50',
+      });
+
+      // 3. EMA 200 Series (Purple - Institutional Trend Filter)
+      tvEma200Series = tvChart.addLineSeries({
+        color: '#A855F7',
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'EMA 200',
+      });
+
+      // 4. Anchored VWAP Series (Gold - Dashed)
+      tvVwapSeries = tvChart.addLineSeries({
+        color: '#EAB308',
+        lineWidth: 1.5,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'VWAP',
+      });
+
+      // Redraw S/R Zones and Risk-Reward box whenever chart is scrolled/zoomed
+      tvChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+        renderZonesOverlay();
+      });
+
       // Resize Observer
       if (window.ResizeObserver) {
         const resizeObserver = new ResizeObserver(entries => {
@@ -1941,6 +2282,7 @@
           const height = Math.floor(entry.contentRect.height);
           if (width > 0 && height > 0) {
             tvChart.applyOptions({ width, height });
+            renderZonesOverlay();
           }
         });
         resizeObserver.observe(container);
@@ -2133,7 +2475,22 @@
       if (sortedCandles.length > 0) {
         tvCandleSeries.setData(sortedCandles);
         tvVolumeSeries.setData(volumeData);
+
+        // Feed Indicators (EMA 20, 50, 200 Ribbon & Anchored VWAP)
+        if (tvEma20Series) tvEma20Series.setData(showEmas ? (data.ema_20 || []) : []);
+        if (tvEma50Series) tvEma50Series.setData(showEmas ? (data.ema_50 || []) : []);
+        if (tvEma200Series) tvEma200Series.setData(showEmas ? (data.ema_200 || []) : []);
+        if (tvVwapSeries) tvVwapSeries.setData(showVwap ? (data.vwap || []) : []);
+
+        // Feed Candle Signal & Pattern Markers
+        if (tvCandleSeries) {
+          tvCandleSeries.setMarkers(showSignals ? (data.markers || []) : []);
+        }
+
         tvChart.timeScale().fitContent();
+
+        // Render S/R Zones & Risk-Reward Box Canvas Overlay
+        setTimeout(() => renderZonesOverlay(), 60);
 
         // Update header summary with last candle
         const last = sortedCandles[sortedCandles.length - 1];
@@ -2152,6 +2509,7 @@
       if (data.confluence) {
         updateConfluenceUI(data.confluence, data.breakout_radar);
       }
+      setTimeout(() => renderZonesOverlay(), 80);
     }
 
     function updateMarketStatusBadge(ms) {
@@ -2265,7 +2623,10 @@
     // CHART FLOATING CONTROLS
     // =========================================================================
     function fitChartContent() {
-      if (tvChart) tvChart.timeScale().fitContent();
+      if (tvChart) {
+        tvChart.timeScale().fitContent();
+        setTimeout(renderZonesOverlay, 60);
+      }
     }
 
     function zoomInChart() {
@@ -2275,6 +2636,7 @@
       if (range) {
         const delta = (range.to - range.from) * 0.2;
         ts.setVisibleLogicalRange({ from: range.from + delta, to: range.to - delta });
+        setTimeout(renderZonesOverlay, 60);
       }
     }
 
@@ -2285,6 +2647,7 @@
       if (range) {
         const delta = (range.to - range.from) * 0.25;
         ts.setVisibleLogicalRange({ from: range.from - delta, to: range.to + delta });
+        setTimeout(renderZonesOverlay, 60);
       }
     }
 
@@ -2300,6 +2663,7 @@
           const container = document.getElementById('tvChartContainer');
           tvChart.resize(container.clientWidth, container.clientHeight);
           tvChart.timeScale().fitContent();
+          setTimeout(renderZonesOverlay, 60);
         }
       }, 50);
     }

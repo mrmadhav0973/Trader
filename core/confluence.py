@@ -416,5 +416,6 @@ def evaluate_master_confluence(
             "capital_risk_amount": max_risk_amount,
             "position_quantity": position_qty,
             "capital_protection_rule": f"Risk capped at {risk_pct*100:.0f}% of {c_sym}{capital:,.0f} ({c_sym}{max_risk_amount:.2f}). Never move Stop Loss away from price."
-        }
+        },
+        "all_sr_zones": sr_zones
     }

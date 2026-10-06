@@ -22,19 +22,23 @@ def wait_for_server(url, timeout=20):
     return False
 
 def run_test():
-    port = 8092
+    port = 8098
     print(f"Starting uvicorn server on port {port}...", flush=True)
+    log_file = open("test_server_output.log", "w", encoding="utf-8")
     server_process = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", str(port)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
         cwd=os.path.dirname(os.path.abspath(__file__))
     )
     
     print("Waiting for server to become ready...", flush=True)
-    if not wait_for_server(f"http://127.0.0.1:{port}/api/indices", timeout=20):
+    if not wait_for_server(f"http://127.0.0.1:{port}/api/indices", timeout=30):
         server_process.terminate()
-        raise RuntimeError("Server failed to respond within 20 seconds.")
+        log_file.close()
+        with open("test_server_output.log", "r", encoding="utf-8", errors="ignore") as f:
+            print("SERVER LOGS:\n" + f.read(), flush=True)
+        raise RuntimeError("Server failed to respond within 30 seconds.")
     print("Server is ready and responding!", flush=True)
 
     try:
@@ -121,12 +125,48 @@ def run_test():
             page.click("#themeToggleBtn")
             time.sleep(0.3)
 
+            # Verify Chart Visual Analysis Overlays
+            print("Verifying Chart Visual Analysis Elements...", flush=True)
+            canvas_exists = page.evaluate("() => !!document.getElementById('tvZonesCanvas')")
+            print(f"S/R Canvas Overlay exists: {canvas_exists}", flush=True)
+            assert canvas_exists, "tvZonesCanvas element missing"
+
+            # Check indicator series data
+            has_emas = page.evaluate("() => !!tvEma20Series && !!tvEma50Series && !!tvEma200Series")
+            print(f"EMA 20/50/200 series initialized: {has_emas}", flush=True)
+            assert has_emas, "EMA series not initialized"
+
+            has_vwap = page.evaluate("() => !!tvVwapSeries")
+            print(f"VWAP series initialized: {has_vwap}", flush=True)
+            assert has_vwap, "VWAP series not initialized"
+
+            # Test Chart Overlay Toggle Buttons
+            print("Testing Zones Toggle...", flush=True)
+            page.click("#btnToggleZones")
+            time.sleep(0.2)
+            z_text = page.locator("#btnToggleZones").inner_text()
+            print(f"Zones Toggle text: {z_text}", flush=True)
+            assert "OFF" in z_text
+            page.click("#btnToggleZones")
+            time.sleep(0.2)
+
+            print("Testing EMAs Toggle...", flush=True)
+            page.click("#btnToggleEmas")
+            time.sleep(0.2)
+            ema_text = page.locator("#btnToggleEmas").inner_text()
+            print(f"EMAs Toggle text: {ema_text}", flush=True)
+            assert "OFF" in ema_text
+            page.click("#btnToggleEmas")
+            time.sleep(0.2)
+
             # Test Chart Price Lines Toggle
             print("Testing Chart Levels toggle button...", flush=True)
             page.click("#btnToggleChartLevels")
             time.sleep(0.3)
             levels_btn_text = page.locator("#btnToggleChartLevels").inner_text()
             print(f"Levels button text: {levels_btn_text}", flush=True)
+            page.click("#btnToggleChartLevels")
+            time.sleep(0.3)
 
             # Test Confluence Drawer Collapse/Expand
             print("Testing drawer collapse...", flush=True)
@@ -162,6 +202,10 @@ def run_test():
 
     finally:
         print("Stopping uvicorn server...", flush=True)
+        try:
+            log_file.close()
+        except Exception:
+            pass
         server_process.terminate()
         server_process.wait()
         print("Server stopped cleanly.", flush=True)

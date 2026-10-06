@@ -18,6 +18,7 @@ from core.data import (
     CRYPTO_SCREENER_WATCHLIST, COMMODITY_SCREENER_WATCHLIST, STOCK_SCREENER_WATCHLIST
 )
 from core.signals import analyze_symbol
+from core.indicators import add_all_indicators
 from core.breakout import detect_breakout_confirmation
 from core.confluence import evaluate_master_confluence
 from core.stream import stream_engine
@@ -293,9 +294,17 @@ def get_analysis(
         if now - c_ts < _ANALYSIS_CACHE_TTL:
             return c_data
 
-    # Extract clean candle list (up to 300 candles for full TradingView panning and zooming)
+    # Compute all technical indicators and moving averages
+    df = add_all_indicators(df)
+
+    # Extract clean candle list and indicator series (up to 300 candles)
     candles_df = df.tail(300)
     candles = []
+    ema_20_series = []
+    ema_50_series = []
+    ema_200_series = []
+    vwap_series = []
+
     for dt, row in candles_df.iterrows():
         unix_ts = int(dt.timestamp())
         candles.append({
@@ -307,6 +316,14 @@ def get_analysis(
             "close": round(float(row["Close"]), 2),
             "volume": int(row["Volume"]) if "Volume" in row and not pd.isna(row["Volume"]) else 0
         })
+        if "EMA_20" in row and not pd.isna(row["EMA_20"]):
+            ema_20_series.append({"time": unix_ts, "value": round(float(row["EMA_20"]), 2)})
+        if "EMA_50" in row and not pd.isna(row["EMA_50"]):
+            ema_50_series.append({"time": unix_ts, "value": round(float(row["EMA_50"]), 2)})
+        if "EMA_200" in row and not pd.isna(row["EMA_200"]):
+            ema_200_series.append({"time": unix_ts, "value": round(float(row["EMA_200"]), 2)})
+        if "VWAP" in row and not pd.isna(row["VWAP"]):
+            vwap_series.append({"time": unix_ts, "value": round(float(row["VWAP"]), 2)})
 
     if len(df) >= 2:
         curr_price = float(df["Close"].iloc[-1])
@@ -327,6 +344,40 @@ def get_analysis(
     # Compute master 95% confluence engine
     confluence = evaluate_master_confluence(df, current_price=curr_price, capital=capital, risk_pct=risk_pct)
 
+    # Build TradingView Candlestick Chart Signal Markers
+    markers = []
+    if candles:
+        last_c = candles[-1]
+        act = confluence.get("action", "")
+        if "BUY" in act or "LONG" in act:
+            markers.append({
+                "time": last_c["time"],
+                "position": "belowBar",
+                "color": "#10B981",
+                "shape": "arrowUp",
+                "text": "BUY"
+            })
+        elif "SELL" in act or "SHORT" in act:
+            markers.append({
+                "time": last_c["time"],
+                "position": "aboveBar",
+                "color": "#EF4444",
+                "shape": "arrowDown",
+                "text": "SELL"
+            })
+
+        # Candlestick anatomy pattern label marker
+        c_name = confluence.get("candlestick_and_vsa", {}).get("candle_name", "")
+        if c_name and "Normal" not in c_name and "Neutral" not in c_name and len(c_name) > 2:
+            clean_cname = c_name.split("(")[0].strip()[:14]
+            markers.append({
+                "time": last_c["time"],
+                "position": "aboveBar" if "SELL" in act else "belowBar",
+                "color": "#3B82F6",
+                "shape": "circle",
+                "text": clean_cname
+            })
+
     payload = {
         "symbol": resolved_sym,
         "currency": currency,
@@ -336,6 +387,12 @@ def get_analysis(
         "change": round(price_change, 2),
         "change_pct": round(pct_change, 2),
         "candles": candles,
+        "ema_20": ema_20_series,
+        "ema_50": ema_50_series,
+        "ema_200": ema_200_series,
+        "vwap": vwap_series,
+        "markers": markers,
+        "sr_zones": confluence.get("all_sr_zones", []),
         "breakout_radar": radar,
         "confluence": confluence,
         "market_status": get_market_status(resolved_sym)
