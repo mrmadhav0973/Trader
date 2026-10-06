@@ -18,6 +18,7 @@ from core.data import (
     CRYPTO_SCREENER_WATCHLIST, COMMODITY_SCREENER_WATCHLIST, STOCK_SCREENER_WATCHLIST
 )
 from core.signals import analyze_symbol
+from core.breakout import detect_breakout_confirmation
 from core.stream import stream_engine
 from core.market_hours import get_market_status, get_asset_category
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -320,6 +321,9 @@ def get_analysis(
         price_change = 0.0
         pct_change = 0.0
 
+    # Compute breakout & confluence confirmation radar
+    radar = detect_breakout_confirmation(df, current_price=curr_price)
+
     payload = {
         "symbol": resolved_sym,
         "currency": currency,
@@ -329,12 +333,29 @@ def get_analysis(
         "change": round(price_change, 2),
         "change_pct": round(pct_change, 2),
         "candles": candles,
+        "breakout_radar": radar,
         "market_status": get_market_status(resolved_sym)
     }
 
     _ANALYSIS_CACHE[cache_key] = (now, payload)
     _ANALYSIS_CACHE[(symbol.strip().upper(), timeframe)] = (now, payload)
     return payload
+
+
+@app.get("/api/breakout")
+def get_breakout_radar(
+    symbol: str = Query("TATAPOWER.NS", description="Stock ticker"),
+    timeframe: str = Query("1d", description="Timeframe")
+):
+    """
+    Return real-time breakout and confluence confirmation radar telemetry.
+    Tracks key resistance/support levels, waiting stages, and human-trader discipline rules.
+    """
+    try:
+        df = fetch_ohlcv(symbol, timeframe=timeframe)
+        return detect_breakout_confirmation(df)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to calculate breakout radar for {symbol}: {str(e)}")
 
 
 @app.get("/api/market-status")

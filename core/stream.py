@@ -15,6 +15,7 @@ import pandas as pd
 from core.data import fetch_ohlcv, normalize_symbol
 from core.signals import analyze_symbol
 from core.market_hours import get_market_status
+from core.breakout import detect_breakout_confirmation
 
 
 class RealTimeStreamEngine:
@@ -49,6 +50,7 @@ class RealTimeStreamEngine:
 
             self._states[key] = {
                 "symbol": resolved_sym,
+                "df": df,
                 "currency": currency,
                 "currency_symbol": curr_sym,
                 "timeframe": timeframe,
@@ -148,6 +150,7 @@ class RealTimeStreamEngine:
                     "be_active": False
                 },
                 "tape_history": state["tape_history"][:5],
+                "breakout_radar": detect_breakout_confirmation(state.get("df"), current_price=curr_p),
                 "timestamp": int(time.time())
             }
 
@@ -350,6 +353,7 @@ class RealTimeStreamEngine:
                 "be_active": state["be_active"]
             },
             "tape_history": state["tape_history"][:5],
+            "breakout_radar": detect_breakout_confirmation(state.get("df"), current_price=new_price),
             "timestamp": int(time.time())
         }
 

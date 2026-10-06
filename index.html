@@ -349,9 +349,404 @@
       color: var(--text-primary);
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    [data-theme="light"] .tf-btn.active {
-      background: #FFFFFF;
-      color: #0A192F;
+    .radar-action-pill {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #F59E0B;
+      padding: 5px 11px;
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+    .radar-action-pill:hover {
+      background: rgba(245, 158, 11, 0.22);
+    }
+    .radar-action-pill.active {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(59, 130, 246, 0.15));
+      border-color: #F59E0B;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+    }
+    .radar-action-pill.off {
+      background: var(--bg-input);
+      border-color: var(--border-subtle);
+      color: var(--text-muted);
+      box-shadow: none;
+      opacity: 0.75;
+    }
+
+    /* ==========================================================================
+       BREAKOUT & CONFLUENCE CONFIRMATION RADAR
+       ========================================================================== */
+    .breakout-radar-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-subtle);
+      overflow: hidden;
+      transition: var(--transition-smooth);
+      position: relative;
+    }
+
+    .breakout-radar-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #F59E0B, #3B82F6, #10B981);
+    }
+
+    .radar-header {
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+      background: var(--bg-surface);
+    }
+
+    .radar-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .radar-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .radar-heading {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .radar-setup-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--bg-input);
+      color: var(--color-accent-blue);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .radar-subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .radar-header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .radar-stage-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .radar-stage-badge.neutral {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+    .radar-stage-badge.amber {
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .radar-stage-badge.blue {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3B82F6;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+    .radar-stage-badge.bull {
+      background: var(--color-bull-soft);
+      color: var(--color-bull);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .radar-stage-badge.bear {
+      background: var(--color-bear-soft);
+      color: var(--color-bear);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .radar-pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
+      animation: pulseRadar 1.5s infinite;
+    }
+    @keyframes pulseRadar {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.8; }
+    }
+
+    .confluence-score-pill {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 9px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .confluence-score-pill b {
+      color: var(--text-primary);
+    }
+
+    .radar-toggle-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 10px;
+      transition: var(--transition-smooth);
+    }
+    .radar-toggle-btn:hover {
+      border-color: var(--border-focus);
+      color: var(--text-primary);
+    }
+
+    .radar-drawer {
+      padding: 0 18px 14px 18px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* 4-Pillar Visual Stepper */
+    .confirmation-stepper {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    @media (max-width: 900px) {
+      .confirmation-stepper { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 550px) {
+      .confirmation-stepper { grid-template-columns: 1fr; }
+    }
+
+    .stepper-step {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: var(--transition-smooth);
+    }
+    .stepper-step.passed {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.05);
+    }
+    .stepper-step.waiting {
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.04);
+    }
+    .stepper-step.trap {
+      border-color: rgba(239, 68, 68, 0.4);
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .step-icon-wrap {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .stepper-step.passed .step-icon-wrap {
+      background: var(--color-bull);
+      border-color: var(--color-bull);
+      color: #FFF;
+    }
+    .stepper-step.waiting .step-icon-wrap {
+      background: var(--color-accent-amber);
+      border-color: var(--color-accent-amber);
+      color: #FFF;
+    }
+    .stepper-step.trap .step-icon-wrap {
+      background: var(--color-bear);
+      border-color: var(--color-bear);
+      color: #FFF;
+    }
+
+    .step-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+    }
+
+    .step-title {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .step-desc {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      line-height: 1.35;
+      font-family: var(--font-mono);
+    }
+    .stepper-step.passed .step-desc {
+      color: var(--color-bull);
+    }
+    .stepper-step.waiting .step-desc {
+      color: var(--color-accent-amber);
+    }
+    .stepper-step.trap .step-desc {
+      color: var(--color-bear);
+    }
+
+    /* Radar Footer: Discipline Rule & Execution Numbers */
+    .radar-footer-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+    @media (max-width: 900px) {
+      .radar-footer-grid { grid-template-columns: 1fr; }
+    }
+
+    .discipline-rule-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--color-accent-amber);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .rule-header {
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .rule-body {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .execution-levels-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .exec-levels-grid {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .exec-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .exec-label {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .exec-val {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .btn-copy-order {
+      background: var(--color-accent-blue);
+      color: #FFF;
+      border: none;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      white-space: nowrap;
+    }
+    .btn-copy-order:hover {
+      background: #2563EB;
     }
 
     /* ==========================================================================
@@ -669,19 +1064,143 @@
       </div>
     </div>
 
-    <!-- Timeframe Switcher -->
-    <div class="timeframe-group">
-      <button class="tf-btn" onclick="setTimeframe(this, '1m')">1m</button>
-      <button class="tf-btn" onclick="setTimeframe(this, '5m')">5m</button>
-      <button class="tf-btn" onclick="setTimeframe(this, '15m')">15m</button>
-      <button class="tf-btn" onclick="setTimeframe(this, '1h')">1h</button>
-      <button class="tf-btn" onclick="setTimeframe(this, '4h')">4h</button>
-      <button class="tf-btn active" onclick="setTimeframe(this, '1d')">1D</button>
+    <!-- Timeframe Switcher & Radar Toggle -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <div class="timeframe-group">
+        <button class="tf-btn" onclick="setTimeframe(this, '1m')">1m</button>
+        <button class="tf-btn" onclick="setTimeframe(this, '5m')">5m</button>
+        <button class="tf-btn" onclick="setTimeframe(this, '15m')">15m</button>
+        <button class="tf-btn" onclick="setTimeframe(this, '1h')">1h</button>
+        <button class="tf-btn" onclick="setTimeframe(this, '4h')">4h</button>
+        <button class="tf-btn active" onclick="setTimeframe(this, '1d')">1D</button>
+      </div>
+
+      <button id="btnToggleRadar" class="radar-action-pill active" onclick="toggleRadarVisibility()" title="Toggle Breakout & Confluence Confirmation Radar">
+        <span>⚡ Radar: ON</span>
+      </button>
     </div>
   </div>
 
-  <!-- MAIN WORKSPACE: FULL-WIDTH PURE CANDLESTICK TERMINAL -->
+  <!-- MAIN WORKSPACE: FULL-WIDTH CANDLESTICK TERMINAL WITH BREAKOUT RADAR -->
   <main class="app-main">
+
+    <!-- BREAKOUT & CONFLUENCE CONFIRMATION RADAR -->
+    <div class="breakout-radar-card" id="breakoutRadarCard">
+      <div class="radar-header" onclick="toggleRadarDrawer()">
+        <div class="radar-title-group">
+          <div class="radar-icon">⚡</div>
+          <div>
+            <div class="radar-heading">
+              <span>Breakout & Confluence Confirmation Radar</span>
+              <span class="radar-setup-tag" id="radarSetupTag">Scanning Key Levels...</span>
+            </div>
+            <div class="radar-subtext" id="radarSubtext">
+              Waiting for candles to confirm breakout conviction before entering • Anti-FOMO & Fakeout Protection
+            </div>
+          </div>
+        </div>
+
+        <div class="radar-header-right">
+          <div class="radar-stage-badge neutral" id="radarStageBadge">
+            <span class="radar-pulse-dot" id="radarPulseDot"></span>
+            <span id="radarStageText">👀 SCANNING STRUCTURE</span>
+          </div>
+          <div class="confluence-score-pill" id="radarScorePill">
+            <span>Confluence:</span>
+            <b id="radarScoreText">0/4 (0%)</b>
+          </div>
+          <button class="radar-toggle-btn" id="radarToggleBtn" title="Expand / Collapse Confirmation Details" onclick="event.stopPropagation(); toggleRadarDrawer()">
+            <span id="radarToggleIcon">▼</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Expandable Confirmation Stepper & Human Discipline Rule -->
+      <div class="radar-drawer" id="radarDrawer">
+        <!-- 4-Pillar Visual Confirmation Stepper -->
+        <div class="confirmation-stepper">
+          <!-- Step 1: Level Breach -->
+          <div class="stepper-step" id="stepPenetration">
+            <div class="step-icon-wrap" id="stepPenetrationIcon">
+              <span class="step-num">1</span>
+            </div>
+            <div class="step-content">
+              <div class="step-title">1. Level Breach</div>
+              <div class="step-desc" id="stepPenetrationDesc">Awaiting price approach</div>
+            </div>
+          </div>
+
+          <!-- Step 2: Candle Close Confirmation -->
+          <div class="stepper-step" id="stepCandleClose">
+            <div class="step-icon-wrap" id="stepCandleCloseIcon">
+              <span class="step-num">2</span>
+            </div>
+            <div class="step-content">
+              <div class="step-title">2. Candle Close</div>
+              <div class="step-desc" id="stepCandleCloseDesc">Waiting for candle close</div>
+            </div>
+          </div>
+
+          <!-- Step 3: Volume Expansion -->
+          <div class="stepper-step" id="stepVolume">
+            <div class="step-icon-wrap" id="stepVolumeIcon">
+              <span class="step-num">3</span>
+            </div>
+            <div class="step-content">
+              <div class="step-title">3. Volume Expansion</div>
+              <div class="step-desc" id="stepVolumeDesc">>1.2x Institutional surge</div>
+            </div>
+          </div>
+
+          <!-- Step 4: Retest & Hold -->
+          <div class="stepper-step" id="stepRetest">
+            <div class="step-icon-wrap" id="stepRetestIcon">
+              <span class="step-num">4</span>
+            </div>
+            <div class="step-content">
+              <div class="step-title">4. Retest & Hold</div>
+              <div class="step-desc" id="stepRetestDesc">Structure preservation</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Human Discipline Wisdom & Execution Levels -->
+        <div class="radar-footer-grid">
+          <div class="discipline-rule-box">
+            <div class="rule-header">
+              <span style="color: var(--color-accent-amber); font-weight: 800;">💡 HUMAN PRO RULE:</span>
+              <span id="radarDisciplineRuleTitle" style="color: var(--text-secondary); font-weight: 600;">Never trade before the close</span>
+            </div>
+            <div class="rule-body" id="radarActionAdvice">
+              Price is currently in consolidation. A professional human trader waits for the candle to breach and officially close beyond the key level to avoid the retail fakeout trap.
+            </div>
+          </div>
+
+          <div class="execution-levels-box" id="radarExecutionBox">
+            <div class="exec-levels-grid">
+              <div class="exec-item">
+                <span class="exec-label">Trigger Level</span>
+                <span class="exec-val" id="radarKeyLevel">₹...</span>
+              </div>
+              <div class="exec-item">
+                <span class="exec-label">Planned Entry</span>
+                <span class="exec-val" id="radarEntryPrice" style="color: var(--color-accent-blue);">₹...</span>
+              </div>
+              <div class="exec-item">
+                <span class="exec-label">Stop Loss</span>
+                <span class="exec-val" id="radarStopLoss" style="color: var(--color-bear);">₹...</span>
+              </div>
+              <div class="exec-item">
+                <span class="exec-label">Target (1:2 R:R)</span>
+                <span class="exec-val" id="radarTarget1" style="color: var(--color-bull);">₹...</span>
+              </div>
+            </div>
+            <button class="btn-copy-order" id="btnCopyRadarOrder" onclick="copyBreakoutOrder()">📋 Copy Order</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <section class="chart-container-card" id="chartCard">
       <!-- Chart Header -->
       <div class="chart-header">
@@ -746,6 +1265,10 @@
     let streamEventSource = null;
     let currentFetchSeq = 0;
     let activeAbortController = null;
+    let currentBreakoutRadar = null;
+    let tvBreakoutLine = null;
+    let isRadarVisible = true;
+    let isRadarDrawerOpen = true;
 
     // Initialize Theme
     document.documentElement.setAttribute('data-theme', currentTheme);
@@ -777,6 +1300,217 @@
       toast.textContent = msg;
       toast.style.display = 'block';
       setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // =========================================================================
+    // BREAKOUT & CONFLUENCE CONFIRMATION RADAR LOGIC
+    // =========================================================================
+    function toggleRadarVisibility() {
+      isRadarVisible = !isRadarVisible;
+      const card = document.getElementById('breakoutRadarCard');
+      const btn = document.getElementById('btnToggleRadar');
+      if (card) {
+        card.style.display = isRadarVisible ? 'flex' : 'none';
+      }
+      if (btn) {
+        btn.classList.toggle('active', isRadarVisible);
+        btn.innerHTML = `<span>⚡ Radar: ${isRadarVisible ? 'ON' : 'OFF'}</span>`;
+      }
+      if (currentBreakoutRadar) {
+        updateBreakoutChartLine(currentBreakoutRadar);
+      }
+    }
+
+    function toggleRadarDrawer() {
+      isRadarDrawerOpen = !isRadarDrawerOpen;
+      const drawer = document.getElementById('radarDrawer');
+      const icon = document.getElementById('radarToggleIcon');
+      if (drawer) {
+        drawer.style.display = isRadarDrawerOpen ? 'flex' : 'none';
+      }
+      if (icon) {
+        icon.textContent = isRadarDrawerOpen ? '▼' : '▲';
+      }
+    }
+
+    function updateBreakoutChartLine(radar) {
+      if (!tvCandleSeries) return;
+
+      if (!isRadarVisible || !radar || !radar.key_level || radar.key_level <= 0) {
+        if (tvBreakoutLine) {
+          try { tvCandleSeries.removePriceLine(tvBreakoutLine); } catch (e) {}
+          tvBreakoutLine = null;
+        }
+        return;
+      }
+
+      if (tvBreakoutLine) {
+        try { tvCandleSeries.removePriceLine(tvBreakoutLine); } catch (e) {}
+        tvBreakoutLine = null;
+      }
+
+      const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
+      let lineColor = '#94A3B8';
+      let titlePrefix = radar.direction === 'LONG' ? 'RES' : 'SUP';
+      if (radar.stage === 'CONFIRMED') {
+        lineColor = '#10B981';
+      } else if (radar.stage === 'FAKEOUT_TRAP') {
+        lineColor = '#EF4444';
+      } else if (radar.stage === 'WAITING_FOR_CANDLE_CLOSE') {
+        lineColor = '#F59E0B';
+      } else if (radar.stage === 'WAITING_FOR_RETEST') {
+        lineColor = '#3B82F6';
+      }
+
+      tvBreakoutLine = tvCandleSeries.createPriceLine({
+        price: radar.key_level,
+        color: lineColor,
+        lineWidth: 1.5,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `${titlePrefix} BREAKOUT: ${cSym}${radar.key_level.toFixed(2)}`,
+      });
+    }
+
+    function updateRadarUI(radar) {
+      if (!radar) return;
+      currentBreakoutRadar = radar;
+
+      const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
+
+      // 1. Setup Title Tag
+      const setupTag = document.getElementById('radarSetupTag');
+      if (setupTag && radar.setup_name) {
+        setupTag.textContent = radar.setup_name;
+      }
+
+      // 2. Stage Badge
+      const stageBadge = document.getElementById('radarStageBadge');
+      const stageText = document.getElementById('radarStageText');
+      if (stageBadge && radar.stage_badge) {
+        stageBadge.className = `radar-stage-badge ${radar.stage_badge.color || 'neutral'}`;
+      }
+      if (stageText && radar.stage_badge) {
+        stageText.textContent = radar.stage_badge.text || radar.stage;
+      }
+
+      // 3. Confluence Score
+      const scoreText = document.getElementById('radarScoreText');
+      if (scoreText) {
+        scoreText.textContent = `${radar.passed_count || 0}/${radar.total_factors || 4} (${radar.confluence_score || 0}%)`;
+      }
+
+      // 4. Confirmation Stepper
+      const factors = radar.confirmation_factors || [];
+      const stepMap = {
+        'penetration': { stepId: 'stepPenetration', iconId: 'stepPenetrationIcon', descId: 'stepPenetrationDesc', num: '1' },
+        'candle_close': { stepId: 'stepCandleClose', iconId: 'stepCandleCloseIcon', descId: 'stepCandleCloseDesc', num: '2' },
+        'volume': { stepId: 'stepVolume', iconId: 'stepVolumeIcon', descId: 'stepVolumeDesc', num: '3' },
+        'retest': { stepId: 'stepRetest', iconId: 'stepRetestIcon', descId: 'stepRetestDesc', num: '4' },
+      };
+
+      factors.forEach(f => {
+        const conf = stepMap[f.id];
+        if (!conf) return;
+        const stepEl = document.getElementById(conf.stepId);
+        const iconEl = document.getElementById(conf.iconId);
+        const descEl = document.getElementById(conf.descId);
+        if (!stepEl || !iconEl || !descEl) return;
+
+        if (f.passed) {
+          stepEl.className = 'stepper-step passed';
+          iconEl.className = 'step-icon-wrap passed';
+          iconEl.textContent = '✓';
+        } else if (radar.stage === 'WAITING_FOR_CANDLE_CLOSE' && f.id === 'candle_close') {
+          stepEl.className = 'stepper-step waiting';
+          iconEl.className = 'step-icon-wrap waiting';
+          iconEl.textContent = '⏳';
+        } else if (radar.stage === 'WAITING_FOR_RETEST' && f.id === 'retest') {
+          stepEl.className = 'stepper-step waiting';
+          iconEl.className = 'step-icon-wrap waiting';
+          iconEl.textContent = '🔄';
+        } else if (radar.stage === 'FAKEOUT_TRAP' && (f.id === 'candle_close' || f.id === 'retest')) {
+          stepEl.className = 'stepper-step trap';
+          iconEl.className = 'step-icon-wrap trap';
+          iconEl.textContent = '✕';
+        } else {
+          stepEl.className = 'stepper-step';
+          iconEl.className = 'step-icon-wrap';
+          iconEl.innerHTML = `<span class="step-num">${conf.num}</span>`;
+        }
+
+        descEl.textContent = f.detail || '';
+      });
+
+      // 5. Human Discipline Rule Box
+      const ruleTitle = document.getElementById('radarDisciplineRuleTitle');
+      const actionAdvice = document.getElementById('radarActionAdvice');
+      if (ruleTitle) {
+        if (radar.stage === 'WAITING_FOR_CANDLE_CLOSE') {
+          ruleTitle.textContent = 'Never enter on an unclosed candle';
+        } else if (radar.stage === 'FAKEOUT_TRAP') {
+          ruleTitle.textContent = 'Avoid trapped retail breakout liquidity';
+        } else if (radar.stage === 'CONFIRMED') {
+          ruleTitle.textContent = 'High confluence achieved — strict trade execution';
+        } else if (radar.stage === 'WAITING_FOR_RETEST') {
+          ruleTitle.textContent = 'Patience on retest yields maximum 1:2+ R:R';
+        } else {
+          ruleTitle.textContent = 'Patience is your statistical edge';
+        }
+      }
+      if (actionAdvice) {
+        actionAdvice.textContent = `${radar.action_advice || ''} ${radar.human_discipline_rule ? '— ' + radar.human_discipline_rule : ''}`;
+      }
+
+      // 6. Execution Numbers Box
+      const keyLevelEl = document.getElementById('radarKeyLevel');
+      const entryEl = document.getElementById('radarEntryPrice');
+      const slEl = document.getElementById('radarStopLoss');
+      const t1El = document.getElementById('radarTarget1');
+
+      if (keyLevelEl) {
+        keyLevelEl.textContent = radar.key_level ? `${cSym}${radar.key_level.toFixed(2)}` : `${cSym}--`;
+      }
+
+      if (radar.trade_levels) {
+        if (entryEl) entryEl.textContent = `${cSym}${radar.trade_levels.entry_price.toFixed(2)}`;
+        if (slEl) slEl.textContent = `${cSym}${radar.trade_levels.stop_loss.toFixed(2)}`;
+        if (t1El) t1El.textContent = `${cSym}${radar.trade_levels.target_1.toFixed(2)}`;
+      }
+
+      // 7. Sync dashed price line on chart
+      updateBreakoutChartLine(radar);
+    }
+
+    function copyBreakoutOrder() {
+      if (!currentBreakoutRadar || !currentBreakoutRadar.trade_levels) {
+        showNotification('⚠️ No active breakout levels available to copy.');
+        return;
+      }
+      const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
+      const tl = currentBreakoutRadar.trade_levels;
+      const text = [
+        `ALPHAEDGE BREAKOUT ORDER`,
+        `Symbol: ${currentSymbol} (${currentBreakoutRadar.direction})`,
+        `Setup: ${currentBreakoutRadar.setup_name}`,
+        `Stage: ${currentBreakoutRadar.stage}`,
+        `Trigger Level: ${cSym}${currentBreakoutRadar.key_level.toFixed(2)}`,
+        `Planned Entry: ${cSym}${tl.entry_price.toFixed(2)}`,
+        `Stop Loss: ${cSym}${tl.stop_loss.toFixed(2)}`,
+        `Target 1 (1:2 R:R): ${cSym}${tl.target_1.toFixed(2)}`,
+        `Target 2 (1:3 R:R): ${cSym}${tl.target_2.toFixed(2)}`,
+        `Risk/Reward: ${tl.risk_reward}`
+      ].join('\\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('📋 Breakout Order copied to clipboard!');
+        }).catch(() => {
+          showNotification('⚠️ Clipboard permission denied.');
+        });
+      } else {
+        showNotification('📋 Order: ' + `${cSym}${tl.entry_price} | SL: ${cSym}${tl.stop_loss} | TP: ${cSym}${tl.target_1}`);
+      }
     }
 
     // =========================================================================
@@ -1085,6 +1819,11 @@
         `;
         updateHoverLegendWithLatest();
       }
+
+      // Update Breakout & Confluence Confirmation Radar
+      if (data.breakout_radar) {
+        updateRadarUI(data.breakout_radar);
+      }
     }
 
     function updateMarketStatusBadge(ms) {
@@ -1187,6 +1926,10 @@
 
       if (tick.market_status) {
         updateMarketStatusBadge(tick.market_status);
+      }
+
+      if (tick.breakout_radar) {
+        updateRadarUI(tick.breakout_radar);
       }
     }
 
