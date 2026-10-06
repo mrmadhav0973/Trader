@@ -749,6 +749,129 @@
       background: #2563EB;
     }
 
+    /* Master 95% Confluence Suite Extensions */
+    .action-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 11px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .action-badge.buy {
+      background: var(--color-bull-soft);
+      color: var(--color-bull);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .action-badge.sell {
+      background: var(--color-bear-soft);
+      color: var(--color-bear);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+    .action-badge.wait {
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .conf-tabs-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .conf-tab-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: var(--transition-smooth);
+    }
+    .conf-tab-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+    .conf-tab-btn.active {
+      background: var(--color-accent-blue);
+      color: #FFF;
+      border-color: var(--color-accent-blue);
+    }
+
+    .conf-tab-pane {
+      display: none;
+      padding: 2px 0;
+      animation: fadeIn 0.15s ease;
+    }
+    .conf-tab-pane.active {
+      display: block;
+    }
+
+    .conf-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 800px) {
+      .conf-grid-2 { grid-template-columns: 1fr; }
+    }
+
+    .conf-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 900px) {
+      .conf-grid-3 { grid-template-columns: 1fr; }
+    }
+
+    .conf-detail-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .conf-card-title {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .conf-card-val {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+    }
+
+    .conf-card-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
     /* ==========================================================================
        MAIN WORKSPACE (FULL-WIDTH CANDLESTICK TERMINAL)
        ========================================================================== */
@@ -1075,8 +1198,8 @@
         <button class="tf-btn active" onclick="setTimeframe(this, '1d')">1D</button>
       </div>
 
-      <button id="btnToggleRadar" class="radar-action-pill active" onclick="toggleRadarVisibility()" title="Toggle Breakout & Confluence Confirmation Radar">
-        <span>⚡ Radar: ON</span>
+      <button id="btnToggleConfluence" class="radar-action-pill active" onclick="toggleConfluenceVisibility()" title="Toggle Master 95% Institutional Confluence Suite">
+        <span>🎯 95% Confluence: ON</span>
       </button>
     </div>
   </div>
@@ -1084,118 +1207,223 @@
   <!-- MAIN WORKSPACE: FULL-WIDTH CANDLESTICK TERMINAL WITH BREAKOUT RADAR -->
   <main class="app-main">
 
-    <!-- BREAKOUT & CONFLUENCE CONFIRMATION RADAR -->
-    <div class="breakout-radar-card" id="breakoutRadarCard">
-      <div class="radar-header" onclick="toggleRadarDrawer()">
+    <!-- MASTER 95% INSTITUTIONAL CONFLUENCE SUITE -->
+    <div class="breakout-radar-card" id="masterConfluenceCard">
+      <div class="radar-header" onclick="toggleConfluenceDrawer()">
         <div class="radar-title-group">
-          <div class="radar-icon">⚡</div>
+          <div class="radar-icon">🎯</div>
           <div>
             <div class="radar-heading">
-              <span>Breakout & Confluence Confirmation Radar</span>
-              <span class="radar-setup-tag" id="radarSetupTag">Scanning Key Levels...</span>
+              <span>Institutional 95% Confluence Suite</span>
+              <span class="radar-setup-tag" id="confluenceSetupTag">Scanning Market Confluence...</span>
             </div>
-            <div class="radar-subtext" id="radarSubtext">
-              Waiting for candles to confirm breakout conviction before entering • Anti-FOMO & Fakeout Protection
+            <div class="radar-subtext" id="confluenceSubtext">
+              Master 4-Point Checklist • Dow Structure • S/R Zones • Candlestick & VSA • Multi-TF Triad • Fakeout Protection
             </div>
           </div>
         </div>
 
         <div class="radar-header-right">
-          <div class="radar-stage-badge neutral" id="radarStageBadge">
-            <span class="radar-pulse-dot" id="radarPulseDot"></span>
-            <span id="radarStageText">👀 SCANNING STRUCTURE</span>
+          <span class="action-badge wait" id="confluenceActionBadge">
+            <span class="radar-pulse-dot" id="confluencePulseDot"></span>
+            <span id="confluenceActionText">SCANNING</span>
+          </span>
+          <div class="confluence-score-pill" id="confluenceScorePill">
+            <span>Accuracy:</span>
+            <b id="confluenceAccuracyText">0% (0/4)</b>
           </div>
-          <div class="confluence-score-pill" id="radarScorePill">
-            <span>Confluence:</span>
-            <b id="radarScoreText">0/4 (0%)</b>
-          </div>
-          <button class="radar-toggle-btn" id="radarToggleBtn" title="Expand / Collapse Confirmation Details" onclick="event.stopPropagation(); toggleRadarDrawer()">
-            <span id="radarToggleIcon">▼</span>
+          <button class="radar-toggle-btn" id="confluenceToggleBtn" title="Expand / Collapse Confluence Details" onclick="event.stopPropagation(); toggleConfluenceDrawer()">
+            <span id="confluenceToggleIcon">▼</span>
           </button>
         </div>
       </div>
 
-      <!-- Expandable Confirmation Stepper & Human Discipline Rule -->
-      <div class="radar-drawer" id="radarDrawer">
-        <!-- 4-Pillar Visual Confirmation Stepper -->
-        <div class="confirmation-stepper">
-          <!-- Step 1: Level Breach -->
-          <div class="stepper-step" id="stepPenetration">
-            <div class="step-icon-wrap" id="stepPenetrationIcon">
-              <span class="step-num">1</span>
-            </div>
+      <!-- Expandable Confluence Drawer: 4-Point Checklist, Deep Dive Tabs & Execution Numbers -->
+      <div class="radar-drawer" id="confluenceDrawer">
+        <!-- 4-Point High-Probability Confluence Checklist -->
+        <div class="confirmation-stepper" id="confluenceStepper">
+          <!-- Step 1: Macro Trend -->
+          <div class="stepper-step" id="stepChecklist1">
+            <div class="step-icon-wrap" id="stepChecklist1Icon"><span class="step-num">1</span></div>
             <div class="step-content">
-              <div class="step-title">1. Level Breach</div>
-              <div class="step-desc" id="stepPenetrationDesc">Awaiting price approach</div>
+              <div class="step-title">1. Macro Trend Alignment</div>
+              <div class="step-desc" id="stepChecklist1Desc">200 EMA & Dow Structure (HH/HL vs LH/LL)</div>
             </div>
           </div>
 
-          <!-- Step 2: Candle Close Confirmation -->
-          <div class="stepper-step" id="stepCandleClose">
-            <div class="step-icon-wrap" id="stepCandleCloseIcon">
-              <span class="step-num">2</span>
-            </div>
+          <!-- Step 2: Value Zone -->
+          <div class="stepper-step" id="stepChecklist2">
+            <div class="step-icon-wrap" id="stepChecklist2Icon"><span class="step-num">2</span></div>
             <div class="step-content">
-              <div class="step-title">2. Candle Close</div>
-              <div class="step-desc" id="stepCandleCloseDesc">Waiting for candle close</div>
+              <div class="step-title">2. Value Zone / S-R Flip</div>
+              <div class="step-desc" id="stepChecklist2Desc">Institutional Demand/Supply Zone & VWAP</div>
             </div>
           </div>
 
-          <!-- Step 3: Volume Expansion -->
-          <div class="stepper-step" id="stepVolume">
-            <div class="step-icon-wrap" id="stepVolumeIcon">
-              <span class="step-num">3</span>
-            </div>
+          <!-- Step 3: Confirmation Trigger -->
+          <div class="stepper-step" id="stepChecklist3">
+            <div class="step-icon-wrap" id="stepChecklist3Icon"><span class="step-num">3</span></div>
             <div class="step-content">
-              <div class="step-title">3. Volume Expansion</div>
-              <div class="step-desc" id="stepVolumeDesc">>1.2x Institutional surge</div>
+              <div class="step-title">3. Price Action & VSA Trigger</div>
+              <div class="step-desc" id="stepChecklist3Desc">Candle Anatomy, Absorption & Liquidity Trap</div>
             </div>
           </div>
 
-          <!-- Step 4: Retest & Hold -->
-          <div class="stepper-step" id="stepRetest">
-            <div class="step-icon-wrap" id="stepRetestIcon">
-              <span class="step-num">4</span>
-            </div>
+          <!-- Step 4: Favorable Math -->
+          <div class="stepper-step" id="stepChecklist4">
+            <div class="step-icon-wrap" id="stepChecklist4Icon"><span class="step-num">4</span></div>
             <div class="step-content">
-              <div class="step-title">4. Retest & Hold</div>
-              <div class="step-desc" id="stepRetestDesc">Structure preservation</div>
+              <div class="step-title">4. Asymmetric Risk Math</div>
+              <div class="step-desc" id="stepChecklist4Desc">Minimum 1:2.0+ R:R & Invalidation Stop Loss</div>
             </div>
           </div>
         </div>
 
-        <!-- Human Discipline Wisdom & Execution Levels -->
+        <!-- Deep-Dive Modular Tabs -->
+        <div class="conf-tabs-nav">
+          <button class="conf-tab-btn active" id="btnTabStructure" onclick="switchConfTab('tabStructure', this)">📊 Market Structure & S/R</button>
+          <button class="conf-tab-btn" id="btnTabCandleVsa" onclick="switchConfTab('tabCandleVsa', this)">🕯️ Candle Anatomy & VSA</button>
+          <button class="conf-tab-btn" id="btnTabIndicators" onclick="switchConfTab('tabIndicators', this)">📈 Indicators & Divergence</button>
+          <button class="conf-tab-btn" id="btnTabMultiTf" onclick="switchConfTab('tabMultiTf', this)">⏱️ Multi-TF Triad</button>
+          <button class="conf-tab-btn" id="btnTabBreakout" onclick="switchConfTab('tabBreakout', this)">⚡ Breakout Radar</button>
+        </div>
+
+        <!-- Tab 1: Market Structure & S/R Zones -->
+        <div class="conf-tab-pane active" id="tabStructure">
+          <div class="conf-grid-3">
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Market Phase & Dow Trend</span><span id="tabStructBadge">STAGE</span></div>
+              <div class="conf-card-val" id="tabStructPhase">Evaluating Phase...</div>
+              <div class="conf-card-sub" id="tabStructDow">Analyzing Higher Highs / Lower Lows sequence</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Structural Shifts (SMC)</span><span>BOS / CHoCH</span></div>
+              <div class="conf-card-val" id="tabStructBos">No Break of Structure</div>
+              <div class="conf-card-sub" id="tabStructChoch">No Change of Character</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Institutional S/R & Polarity</span><span>Flip & Round #</span></div>
+              <div class="conf-card-val" id="tabStructZones">Demand: ₹... | Supply: ₹...</div>
+              <div class="conf-card-sub" id="tabStructFlip">Polarity: S-R Flip active</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Candlestick Anatomy & VSA -->
+        <div class="conf-tab-pane" id="tabCandleVsa">
+          <div class="conf-grid-3">
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Candlestick Anatomy</span><span>Anatomy vs Memory</span></div>
+              <div class="conf-card-val" id="tabCandleName">Evaluating bar...</div>
+              <div class="conf-card-sub" id="tabCandlePsychology">Wicks = Rejection / Trap; Bodies = Conviction</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Volume Spread Analysis (VSA)</span><span>Effort vs Result</span></div>
+              <div class="conf-card-val" id="tabVsaVerdict">Normal Participation</div>
+              <div class="conf-card-sub" id="tabVsaSub">Tracking institutional absorption & volume spikes</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Liquidity Trap Alert</span><span>Fakeout Engine</span></div>
+              <div class="conf-card-val" id="tabTrapStatus">No Trap Active</div>
+              <div class="conf-card-sub" id="tabTrapDetail">Monitoring stop hunt traps outside key levels</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Indicators & Divergences -->
+        <div class="conf-tab-pane" id="tabIndicators">
+          <div class="conf-grid-3">
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Session VWAP Benchmark</span><span>Institutional Anchor</span></div>
+              <div class="conf-card-val" id="tabVwapVal">VWAP: ₹...</div>
+              <div class="conf-card-sub" id="tabVwapStatus">Above VWAP (Bullish Bias)</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>EMA Ribbon (20 / 50 / 200)</span><span>Momentum Guide</span></div>
+              <div class="conf-card-val" id="tabEmaRibbon">20 EMA: ₹... | 200 EMA: ₹...</div>
+              <div class="conf-card-sub" id="tabEmaStatus">Macro Trend benchmark alignment</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>RSI (14) & Divergence</span><span>Exhaustion Signal</span></div>
+              <div class="conf-card-val" id="tabRsiVal">RSI: 50.0</div>
+              <div class="conf-card-sub" id="tabRsiDiv">No active divergence detected</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Multi-Timeframe Triad -->
+        <div class="conf-tab-pane" id="tabMultiTf">
+          <div class="conf-grid-3">
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>HTF Macro Trend (Daily/1H)</span><span>Top-Down 1</span></div>
+              <div class="conf-card-val" id="tabHtfVal">Macro Trend Alignment</div>
+              <div class="conf-card-sub">Identifies primary directional institutional bias</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>MTF Structure (15m/4h)</span><span>Top-Down 2</span></div>
+              <div class="conf-card-val" id="tabMtfVal">Structure Alignment</div>
+              <div class="conf-card-sub">Identifies pattern development and key S/R flips</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>LTF Trigger (1m/5m)</span><span>Top-Down 3</span></div>
+              <div class="conf-card-val" id="tabLtfVal">Execution Trigger</div>
+              <div class="conf-card-sub" id="tabTriadSummary">Triad Alignment: 3/3 Aligned for Maximum Edge</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Breakout Radar -->
+        <div class="conf-tab-pane" id="tabBreakout">
+          <div class="conf-grid-2">
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>Breakout Confirmation Stage</span><span id="tabRadarStageTag">...</span></div>
+              <div class="conf-card-val" id="tabRadarStageText">Scanning Levels...</div>
+              <div class="conf-card-sub" id="tabRadarAdvice">Waiting for candles to close beyond level</div>
+            </div>
+            <div class="conf-detail-card">
+              <div class="conf-card-title"><span>4 Confirmation Pillars</span><span>Anti-FOMO</span></div>
+              <div class="conf-card-val" id="tabRadarPillars">Level Breach • Candle Close • Volume • Retest</div>
+              <div class="conf-card-sub" id="tabRadarRule">Pro Rule: Never enter on an unclosed candle</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Human Discipline Wisdom & Execution Numbers -->
         <div class="radar-footer-grid">
           <div class="discipline-rule-box">
             <div class="rule-header">
-              <span style="color: var(--color-accent-amber); font-weight: 800;">💡 HUMAN PRO RULE:</span>
-              <span id="radarDisciplineRuleTitle" style="color: var(--text-secondary); font-weight: 600;">Never trade before the close</span>
+              <span style="color: var(--color-accent-amber); font-weight: 800;">💡 INSTITUTIONAL DISCIPLINE RULE:</span>
+              <span id="confluenceRuleTitle" style="color: var(--text-secondary); font-weight: 600;">95% Confluence Filter</span>
             </div>
-            <div class="rule-body" id="radarActionAdvice">
-              Price is currently in consolidation. A professional human trader waits for the candle to breach and officially close beyond the key level to avoid the retail fakeout trap.
+            <div class="rule-body" id="confluenceRuleBody">
+              Waiting for full 4-point confluence. If a setup meets only 1 or 2 points, skip the trade. Cash is also a position.
             </div>
           </div>
 
-          <div class="execution-levels-box" id="radarExecutionBox">
+          <div class="execution-levels-box" id="confluenceExecutionBox">
             <div class="exec-levels-grid">
               <div class="exec-item">
-                <span class="exec-label">Trigger Level</span>
-                <span class="exec-val" id="radarKeyLevel">₹...</span>
+                <span class="exec-label">Action</span>
+                <span class="exec-val" id="confExecAction" style="color: var(--color-bull);">BUY / LONG</span>
               </div>
               <div class="exec-item">
                 <span class="exec-label">Planned Entry</span>
-                <span class="exec-val" id="radarEntryPrice" style="color: var(--color-accent-blue);">₹...</span>
+                <span class="exec-val" id="confExecEntry" style="color: var(--color-accent-blue);">₹...</span>
               </div>
               <div class="exec-item">
                 <span class="exec-label">Stop Loss</span>
-                <span class="exec-val" id="radarStopLoss" style="color: var(--color-bear);">₹...</span>
+                <span class="exec-val" id="confExecSL" style="color: var(--color-bear);">₹...</span>
               </div>
               <div class="exec-item">
-                <span class="exec-label">Target (1:2 R:R)</span>
-                <span class="exec-val" id="radarTarget1" style="color: var(--color-bull);">₹...</span>
+                <span class="exec-label">Target 1 (1:2)</span>
+                <span class="exec-val" id="confExecT1" style="color: var(--color-bull);">₹...</span>
+              </div>
+              <div class="exec-item">
+                <span class="exec-label">Target 2 (1:3)</span>
+                <span class="exec-val" id="confExecT2" style="color: var(--color-bull);">₹...</span>
               </div>
             </div>
-            <button class="btn-copy-order" id="btnCopyRadarOrder" onclick="copyBreakoutOrder()">📋 Copy Order</button>
+            <button class="btn-copy-order" id="btnCopyConfluenceOrder" onclick="copyConfluenceOrder()">📋 Copy Order</button>
           </div>
         </div>
       </div>
@@ -1225,6 +1453,7 @@
 
         <!-- Floating Controls -->
         <div class="tv-floating-toolbar">
+          <button class="tv-btn" id="btnToggleChartLevels" onclick="toggleChartPriceLines()" title="Toggle Entry, Stop Loss & Target Price Lines">🎯 Levels: ON</button>
           <button class="tv-btn" onclick="fitChartContent()" title="Auto-Fit All Candles">⛶ Auto-Fit</button>
           <button class="tv-btn" onclick="zoomInChart()" title="Zoom In">+</button>
           <button class="tv-btn" onclick="zoomOutChart()" title="Zoom Out">−</button>
@@ -1265,10 +1494,19 @@
     let streamEventSource = null;
     let currentFetchSeq = 0;
     let activeAbortController = null;
+    let currentConfluence = null;
     let currentBreakoutRadar = null;
+    let isConfluenceVisible = true;
+    let isConfluenceDrawerOpen = true;
+    let activeConfTab = 'tabStructure';
+    let showChartPriceLines = true;
+
+    // Price lines
+    let tvEntryLine = null;
+    let tvStopLossLine = null;
+    let tvTarget1Line = null;
+    let tvTarget2Line = null;
     let tvBreakoutLine = null;
-    let isRadarVisible = true;
-    let isRadarDrawerOpen = true;
 
     // Initialize Theme
     document.documentElement.setAttribute('data-theme', currentTheme);
@@ -1303,213 +1541,303 @@
     }
 
     // =========================================================================
-    // BREAKOUT & CONFLUENCE CONFIRMATION RADAR LOGIC
+    // MASTER 95% INSTITUTIONAL CONFLUENCE LOGIC
     // =========================================================================
-    function toggleRadarVisibility() {
-      isRadarVisible = !isRadarVisible;
-      const card = document.getElementById('breakoutRadarCard');
-      const btn = document.getElementById('btnToggleRadar');
+    function toggleConfluenceVisibility() {
+      isConfluenceVisible = !isConfluenceVisible;
+      const card = document.getElementById('masterConfluenceCard');
+      const btn = document.getElementById('btnToggleConfluence');
       if (card) {
-        card.style.display = isRadarVisible ? 'flex' : 'none';
+        card.style.display = isConfluenceVisible ? 'flex' : 'none';
       }
       if (btn) {
-        btn.classList.toggle('active', isRadarVisible);
-        btn.innerHTML = `<span>⚡ Radar: ${isRadarVisible ? 'ON' : 'OFF'}</span>`;
+        btn.classList.toggle('active', isConfluenceVisible);
+        btn.innerHTML = `<span>🎯 95% Confluence: ${isConfluenceVisible ? 'ON' : 'OFF'}</span>`;
       }
-      if (currentBreakoutRadar) {
-        updateBreakoutChartLine(currentBreakoutRadar);
+      if (currentConfluence) {
+        updateChartPriceLines(currentConfluence);
       }
     }
 
-    function toggleRadarDrawer() {
-      isRadarDrawerOpen = !isRadarDrawerOpen;
-      const drawer = document.getElementById('radarDrawer');
-      const icon = document.getElementById('radarToggleIcon');
+    function toggleConfluenceDrawer() {
+      isConfluenceDrawerOpen = !isConfluenceDrawerOpen;
+      const drawer = document.getElementById('confluenceDrawer');
+      const icon = document.getElementById('confluenceToggleIcon');
       if (drawer) {
-        drawer.style.display = isRadarDrawerOpen ? 'flex' : 'none';
+        drawer.style.display = isConfluenceDrawerOpen ? 'flex' : 'none';
       }
       if (icon) {
-        icon.textContent = isRadarDrawerOpen ? '▼' : '▲';
+        icon.textContent = isConfluenceDrawerOpen ? '▼' : '▲';
       }
     }
 
-    function updateBreakoutChartLine(radar) {
+    function switchConfTab(tabId, btn) {
+      activeConfTab = tabId;
+      document.querySelectorAll('.conf-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.conf-tab-pane').forEach(p => p.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      const pane = document.getElementById(tabId);
+      if (pane) pane.classList.add('active');
+    }
+
+    function toggleChartPriceLines() {
+      showChartPriceLines = !showChartPriceLines;
+      const btn = document.getElementById('btnToggleChartLevels');
+      if (btn) {
+        btn.textContent = `🎯 Levels: ${showChartPriceLines ? 'ON' : 'OFF'}`;
+      }
+      if (currentConfluence) {
+        updateChartPriceLines(currentConfluence);
+      }
+    }
+
+    function updateChartPriceLines(conf) {
       if (!tvCandleSeries) return;
 
-      if (!isRadarVisible || !radar || !radar.key_level || radar.key_level <= 0) {
-        if (tvBreakoutLine) {
-          try { tvCandleSeries.removePriceLine(tvBreakoutLine); } catch (e) {}
-          tvBreakoutLine = null;
-        }
-        return;
-      }
+      // Clear existing lines
+      if (tvEntryLine) { try { tvCandleSeries.removePriceLine(tvEntryLine); } catch(e){} tvEntryLine = null; }
+      if (tvStopLossLine) { try { tvCandleSeries.removePriceLine(tvStopLossLine); } catch(e){} tvStopLossLine = null; }
+      if (tvTarget1Line) { try { tvCandleSeries.removePriceLine(tvTarget1Line); } catch(e){} tvTarget1Line = null; }
+      if (tvTarget2Line) { try { tvCandleSeries.removePriceLine(tvTarget2Line); } catch(e){} tvTarget2Line = null; }
 
-      if (tvBreakoutLine) {
-        try { tvCandleSeries.removePriceLine(tvBreakoutLine); } catch (e) {}
-        tvBreakoutLine = null;
-      }
+      if (!showChartPriceLines || !conf || !conf.execution_plan) return;
 
+      const ep = conf.execution_plan;
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
-      let lineColor = '#94A3B8';
-      let titlePrefix = radar.direction === 'LONG' ? 'RES' : 'SUP';
-      if (radar.stage === 'CONFIRMED') {
-        lineColor = '#10B981';
-      } else if (radar.stage === 'FAKEOUT_TRAP') {
-        lineColor = '#EF4444';
-      } else if (radar.stage === 'WAITING_FOR_CANDLE_CLOSE') {
-        lineColor = '#F59E0B';
-      } else if (radar.stage === 'WAITING_FOR_RETEST') {
-        lineColor = '#3B82F6';
+
+      // Clean Entry Line
+      if (ep.entry_price > 0) {
+        tvEntryLine = tvCandleSeries.createPriceLine({
+          price: ep.entry_price,
+          color: '#3B82F6',
+          lineWidth: 1.5,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `ENTRY: ${cSym}${ep.entry_price.toFixed(2)}`
+        });
       }
 
-      tvBreakoutLine = tvCandleSeries.createPriceLine({
-        price: radar.key_level,
-        color: lineColor,
-        lineWidth: 1.5,
-        lineStyle: LightweightCharts.LineStyle.Dashed,
-        axisLabelVisible: true,
-        title: `${titlePrefix} BREAKOUT: ${cSym}${radar.key_level.toFixed(2)}`,
-      });
+      // Clean Stop Loss Line
+      if (ep.stop_loss > 0) {
+        tvStopLossLine = tvCandleSeries.createPriceLine({
+          price: ep.stop_loss,
+          color: '#EF4444',
+          lineWidth: 1.5,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `SL: ${cSym}${ep.stop_loss.toFixed(2)}`
+        });
+      }
+
+      // Clean Target 1 Line
+      if (ep.target_1 > 0) {
+        tvTarget1Line = tvCandleSeries.createPriceLine({
+          price: ep.target_1,
+          color: '#10B981',
+          lineWidth: 1.5,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `TP1: ${cSym}${ep.target_1.toFixed(2)}`
+        });
+      }
     }
 
-    function updateRadarUI(radar) {
-      if (!radar) return;
-      currentBreakoutRadar = radar;
+    function updateConfluenceUI(conf, radar) {
+      if (!conf) return;
+      currentConfluence = conf;
+      if (radar) currentBreakoutRadar = radar;
 
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
 
-      // 1. Setup Title Tag
-      const setupTag = document.getElementById('radarSetupTag');
-      if (setupTag && radar.setup_name) {
-        setupTag.textContent = radar.setup_name;
+      // 1. Header Setup & Badges
+      const setupTag = document.getElementById('confluenceSetupTag');
+      if (setupTag && conf.market_structure) {
+        setupTag.textContent = `${conf.market_structure.phase} • ${conf.action}`;
       }
 
-      // 2. Stage Badge
-      const stageBadge = document.getElementById('radarStageBadge');
-      const stageText = document.getElementById('radarStageText');
-      if (stageBadge && radar.stage_badge) {
-        stageBadge.className = `radar-stage-badge ${radar.stage_badge.color || 'neutral'}`;
-      }
-      if (stageText && radar.stage_badge) {
-        stageText.textContent = radar.stage_badge.text || radar.stage;
+      const actionBadge = document.getElementById('confluenceActionBadge');
+      const actionText = document.getElementById('confluenceActionText');
+      if (actionBadge && actionText) {
+        const actLower = conf.action.includes('BUY') ? 'buy' : (conf.action.includes('SELL') ? 'sell' : 'wait');
+        actionBadge.className = `action-badge ${actLower}`;
+        actionText.textContent = conf.action;
       }
 
-      // 3. Confluence Score
-      const scoreText = document.getElementById('radarScoreText');
-      if (scoreText) {
-        scoreText.textContent = `${radar.passed_count || 0}/${radar.total_factors || 4} (${radar.confluence_score || 0}%)`;
+      const accText = document.getElementById('confluenceAccuracyText');
+      if (accText) {
+        accText.textContent = `${conf.accuracy_score}% (${conf.passed_count}/${conf.total_criteria})`;
       }
 
-      // 4. Confirmation Stepper
-      const factors = radar.confirmation_factors || [];
-      const stepMap = {
-        'penetration': { stepId: 'stepPenetration', iconId: 'stepPenetrationIcon', descId: 'stepPenetrationDesc', num: '1' },
-        'candle_close': { stepId: 'stepCandleClose', iconId: 'stepCandleCloseIcon', descId: 'stepCandleCloseDesc', num: '2' },
-        'volume': { stepId: 'stepVolume', iconId: 'stepVolumeIcon', descId: 'stepVolumeDesc', num: '3' },
-        'retest': { stepId: 'stepRetest', iconId: 'stepRetestIcon', descId: 'stepRetestDesc', num: '4' },
-      };
+      // 2. The 4-Point Checklist Stepper
+      const checklist = conf.checklist || [];
+      checklist.forEach((item, idx) => {
+        const stepNum = idx + 1;
+        const stepEl = document.getElementById(`stepChecklist${stepNum}`);
+        const iconEl = document.getElementById(`stepChecklist${stepNum}Icon`);
+        const descEl = document.getElementById(`stepChecklist${stepNum}Desc`);
 
-      factors.forEach(f => {
-        const conf = stepMap[f.id];
-        if (!conf) return;
-        const stepEl = document.getElementById(conf.stepId);
-        const iconEl = document.getElementById(conf.iconId);
-        const descEl = document.getElementById(conf.descId);
-        if (!stepEl || !iconEl || !descEl) return;
-
-        if (f.passed) {
-          stepEl.className = 'stepper-step passed';
-          iconEl.className = 'step-icon-wrap passed';
-          iconEl.textContent = '✓';
-        } else if (radar.stage === 'WAITING_FOR_CANDLE_CLOSE' && f.id === 'candle_close') {
-          stepEl.className = 'stepper-step waiting';
-          iconEl.className = 'step-icon-wrap waiting';
-          iconEl.textContent = '⏳';
-        } else if (radar.stage === 'WAITING_FOR_RETEST' && f.id === 'retest') {
-          stepEl.className = 'stepper-step waiting';
-          iconEl.className = 'step-icon-wrap waiting';
-          iconEl.textContent = '🔄';
-        } else if (radar.stage === 'FAKEOUT_TRAP' && (f.id === 'candle_close' || f.id === 'retest')) {
-          stepEl.className = 'stepper-step trap';
-          iconEl.className = 'step-icon-wrap trap';
-          iconEl.textContent = '✕';
-        } else {
-          stepEl.className = 'stepper-step';
-          iconEl.className = 'step-icon-wrap';
-          iconEl.innerHTML = `<span class="step-num">${conf.num}</span>`;
+        if (stepEl && iconEl) {
+          if (item.passed) {
+            stepEl.className = 'stepper-step passed';
+            iconEl.className = 'step-icon-wrap passed';
+            iconEl.textContent = '✓';
+          } else {
+            stepEl.className = 'stepper-step waiting';
+            iconEl.className = 'step-icon-wrap waiting';
+            iconEl.textContent = '⏳';
+          }
         }
-
-        descEl.textContent = f.detail || '';
+        if (descEl) {
+          descEl.textContent = item.detail || item.subtitle;
+        }
       });
 
-      // 5. Human Discipline Rule Box
-      const ruleTitle = document.getElementById('radarDisciplineRuleTitle');
-      const actionAdvice = document.getElementById('radarActionAdvice');
-      if (ruleTitle) {
-        if (radar.stage === 'WAITING_FOR_CANDLE_CLOSE') {
-          ruleTitle.textContent = 'Never enter on an unclosed candle';
-        } else if (radar.stage === 'FAKEOUT_TRAP') {
-          ruleTitle.textContent = 'Avoid trapped retail breakout liquidity';
-        } else if (radar.stage === 'CONFIRMED') {
-          ruleTitle.textContent = 'High confluence achieved — strict trade execution';
-        } else if (radar.stage === 'WAITING_FOR_RETEST') {
-          ruleTitle.textContent = 'Patience on retest yields maximum 1:2+ R:R';
-        } else {
-          ruleTitle.textContent = 'Patience is your statistical edge';
+      // 3. Tab 1: Market Structure & S/R
+      if (conf.market_structure) {
+        const ms = conf.market_structure;
+        const phaseEl = document.getElementById('tabStructPhase');
+        const dowEl = document.getElementById('tabStructDow');
+        const bosEl = document.getElementById('tabStructBos');
+        const chochEl = document.getElementById('tabStructChoch');
+        const zonesEl = document.getElementById('tabStructZones');
+        const flipEl = document.getElementById('tabStructFlip');
+
+        if (phaseEl) phaseEl.textContent = ms.phase;
+        if (dowEl) dowEl.textContent = ms.dow_trend;
+        if (bosEl) bosEl.textContent = ms.bos;
+        if (chochEl) chochEl.textContent = ms.choch;
+        if (zonesEl) {
+          const dStr = ms.demand_zone ? `${cSym}${ms.demand_zone.low_price.toFixed(2)}-${ms.demand_zone.high_price.toFixed(2)}` : 'Macro Base';
+          const sStr = ms.supply_zone ? `${cSym}${ms.supply_zone.low_price.toFixed(2)}-${ms.supply_zone.high_price.toFixed(2)}` : 'Overhead Resistance';
+          zonesEl.textContent = `Demand: ${dStr} | Supply: ${sStr}`;
+        }
+        if (flipEl) {
+          const roundStr = ms.psychological_round ? ` | Round: ${cSym}${ms.psychological_round.level}` : '';
+          flipEl.textContent = (ms.sr_flip ? `Polarity: Active S-R Flip at ${cSym}${ms.sr_flip.mid_price.toFixed(2)}` : `Polarity: Standard S/R`) + roundStr;
         }
       }
-      if (actionAdvice) {
-        actionAdvice.textContent = `${radar.action_advice || ''} ${radar.human_discipline_rule ? '— ' + radar.human_discipline_rule : ''}`;
+
+      // 4. Tab 2: Candlestick & VSA
+      if (conf.candlestick_and_vsa) {
+        const cv = conf.candlestick_and_vsa;
+        const cNameEl = document.getElementById('tabCandleName');
+        const cPsyEl = document.getElementById('tabCandlePsychology');
+        const vsaVerEl = document.getElementById('tabVsaVerdict');
+        const vsaSubEl = document.getElementById('tabVsaSub');
+        const trapStEl = document.getElementById('tabTrapStatus');
+        const trapDetEl = document.getElementById('tabTrapDetail');
+
+        if (cNameEl) cNameEl.textContent = cv.candle_name;
+        if (cPsyEl) cPsyEl.textContent = cv.candle_psychology;
+        if (vsaVerEl) vsaVerEl.textContent = cv.vsa_verdict;
+        if (vsaSubEl) vsaSubEl.textContent = `Volume Ratio: ${cv.volume_ratio}x SMA. ${cv.vsa_code}`;
+        if (trapStEl) trapStEl.textContent = cv.liquidity_trap.type;
+        if (trapDetEl) trapDetEl.textContent = cv.liquidity_trap.detail;
       }
 
-      // 6. Execution Numbers Box
-      const keyLevelEl = document.getElementById('radarKeyLevel');
-      const entryEl = document.getElementById('radarEntryPrice');
-      const slEl = document.getElementById('radarStopLoss');
-      const t1El = document.getElementById('radarTarget1');
+      // 5. Tab 3: Indicators & Divergences
+      if (conf.indicators) {
+        const ind = conf.indicators;
+        const vwapValEl = document.getElementById('tabVwapVal');
+        const vwapStEl = document.getElementById('tabVwapStatus');
+        const emaRibbonEl = document.getElementById('tabEmaRibbon');
+        const emaStEl = document.getElementById('tabEmaStatus');
+        const rsiValEl = document.getElementById('tabRsiVal');
+        const rsiDivEl = document.getElementById('tabRsiDiv');
 
-      if (keyLevelEl) {
-        keyLevelEl.textContent = radar.key_level ? `${cSym}${radar.key_level.toFixed(2)}` : `${cSym}--`;
+        if (vwapValEl) vwapValEl.textContent = `VWAP: ${cSym}${ind.vwap.toFixed(2)}`;
+        if (vwapStEl) vwapStEl.textContent = ind.price_vs_vwap;
+        if (emaRibbonEl) emaRibbonEl.textContent = `20: ${cSym}${ind.ema_20.toFixed(2)} | 50: ${cSym}${ind.ema_50.toFixed(2)} | 200: ${cSym}${ind.ema_200.toFixed(2)}`;
+        if (emaStEl) emaStEl.textContent = (conf.current_price >= ind.ema_200 ? 'Bullish Macro Bias' : 'Bearish Macro Bias');
+        if (rsiValEl) rsiValEl.textContent = `RSI (14): ${ind.rsi_14.toFixed(1)}`;
+        if (rsiDivEl) rsiDivEl.textContent = ind.rsi_divergence.detail;
       }
 
-      if (radar.trade_levels) {
-        if (entryEl) entryEl.textContent = `${cSym}${radar.trade_levels.entry_price.toFixed(2)}`;
-        if (slEl) slEl.textContent = `${cSym}${radar.trade_levels.stop_loss.toFixed(2)}`;
-        if (t1El) t1El.textContent = `${cSym}${radar.trade_levels.target_1.toFixed(2)}`;
+      // 6. Tab 4: Multi-Timeframe Triad
+      if (conf.multi_timeframe) {
+        const mtf = conf.multi_timeframe;
+        const htfEl = document.getElementById('tabHtfVal');
+        const mtfEl = document.getElementById('tabMtfVal');
+        const ltfEl = document.getElementById('tabLtfVal');
+        const triadSumEl = document.getElementById('tabTriadSummary');
+
+        if (htfEl) htfEl.textContent = mtf.htf_macro;
+        if (mtfEl) mtfEl.textContent = mtf.mtf_structure;
+        if (ltfEl) ltfEl.textContent = mtf.ltf_trigger;
+        if (triadSumEl) triadSumEl.textContent = `Triad Alignment: ${mtf.triad_alignment}`;
       }
 
-      // 7. Sync dashed price line on chart
-      updateBreakoutChartLine(radar);
+      // 7. Tab 5: Breakout Radar
+      if (radar) {
+        const rStageTag = document.getElementById('tabRadarStageTag');
+        const rStageText = document.getElementById('tabRadarStageText');
+        const rAdvice = document.getElementById('tabRadarAdvice');
+        const rPillars = document.getElementById('tabRadarPillars');
+        const rRule = document.getElementById('tabRadarRule');
+
+        if (rStageTag && radar.stage_badge) rStageTag.textContent = radar.stage_badge.text;
+        if (rStageText) rStageText.textContent = radar.setup_name;
+        if (rAdvice) rAdvice.textContent = radar.action_advice;
+        if (rPillars) rPillars.textContent = `Confluence: ${radar.passed_count || 0}/4 Factors Passed`;
+        if (rRule) rRule.textContent = radar.human_discipline_rule;
+      }
+
+      // 8. Human Discipline Rule & Execution Numbers
+      const ruleTitle = document.getElementById('confluenceRuleTitle');
+      const ruleBody = document.getElementById('confluenceRuleBody');
+      if (ruleTitle) ruleTitle.textContent = conf.grade;
+      if (ruleBody) ruleBody.textContent = conf.verdict;
+
+      if (conf.execution_plan) {
+        const ep = conf.execution_plan;
+        const execAction = document.getElementById('confExecAction');
+        const execEntry = document.getElementById('confExecEntry');
+        const execSL = document.getElementById('confExecSL');
+        const execT1 = document.getElementById('confExecT1');
+        const execT2 = document.getElementById('confExecT2');
+
+        if (execAction) {
+          execAction.textContent = ep.direction === 'LONG' ? 'BUY / LONG' : 'SELL / SHORT';
+          execAction.style.color = ep.direction === 'LONG' ? 'var(--color-bull)' : 'var(--color-bear)';
+        }
+        if (execEntry) execEntry.textContent = `${cSym}${ep.entry_price.toFixed(2)}`;
+        if (execSL) execSL.textContent = `${cSym}${ep.stop_loss.toFixed(2)}`;
+        if (execT1) execT1.textContent = `${cSym}${ep.target_1.toFixed(2)}`;
+        if (execT2) execT2.textContent = `${cSym}${ep.target_2.toFixed(2)}`;
+      }
+
+      // 9. Synchronize clean price lines on chart
+      updateChartPriceLines(conf);
     }
 
-    function copyBreakoutOrder() {
-      if (!currentBreakoutRadar || !currentBreakoutRadar.trade_levels) {
-        showNotification('⚠️ No active breakout levels available to copy.');
+    function copyConfluenceOrder() {
+      if (!currentConfluence || !currentConfluence.execution_plan) {
+        showNotification('⚠️ No active confluence execution levels available.');
         return;
       }
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
-      const tl = currentBreakoutRadar.trade_levels;
+      const ep = currentConfluence.execution_plan;
       const text = [
-        `ALPHAEDGE BREAKOUT ORDER`,
-        `Symbol: ${currentSymbol} (${currentBreakoutRadar.direction})`,
-        `Setup: ${currentBreakoutRadar.setup_name}`,
-        `Stage: ${currentBreakoutRadar.stage}`,
-        `Trigger Level: ${cSym}${currentBreakoutRadar.key_level.toFixed(2)}`,
-        `Planned Entry: ${cSym}${tl.entry_price.toFixed(2)}`,
-        `Stop Loss: ${cSym}${tl.stop_loss.toFixed(2)}`,
-        `Target 1 (1:2 R:R): ${cSym}${tl.target_1.toFixed(2)}`,
-        `Target 2 (1:3 R:R): ${cSym}${tl.target_2.toFixed(2)}`,
-        `Risk/Reward: ${tl.risk_reward}`
+        `ALPHAEDGE 95% CONFLUENCE ORDER`,
+        `Symbol: ${currentSymbol} (${ep.direction})`,
+        `Grade: ${currentConfluence.grade} (${currentConfluence.accuracy_score}%)`,
+        `Action: ${currentConfluence.action}`,
+        `Planned Entry: ${cSym}${ep.entry_price.toFixed(2)}`,
+        `Stop Loss: ${cSym}${ep.stop_loss.toFixed(2)}`,
+        `Target 1 (1:2 R:R): ${cSym}${ep.target_1.toFixed(2)}`,
+        `Target 2 (1:3 R:R): ${cSym}${ep.target_2.toFixed(2)}`,
+        `Position Size: ${ep.position_quantity} shares (${cSym}${ep.capital_risk_amount} max risk)`,
+        `Risk Rule: ${ep.capital_protection_rule}`
       ].join('\\n');
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
-          showNotification('📋 Breakout Order copied to clipboard!');
+          showNotification('📋 95% Confluence Order copied to clipboard!');
         }).catch(() => {
           showNotification('⚠️ Clipboard permission denied.');
         });
       } else {
-        showNotification('📋 Order: ' + `${cSym}${tl.entry_price} | SL: ${cSym}${tl.stop_loss} | TP: ${cSym}${tl.target_1}`);
+        showNotification('📋 Order: ' + `${cSym}${ep.entry_price} | SL: ${cSym}${ep.stop_loss} | TP: ${cSym}${ep.target_1}`);
       }
     }
 
@@ -1820,9 +2148,9 @@
         updateHoverLegendWithLatest();
       }
 
-      // Update Breakout & Confluence Confirmation Radar
-      if (data.breakout_radar) {
-        updateRadarUI(data.breakout_radar);
+      // Update 95% Institutional Confluence Suite & Breakout Radar
+      if (data.confluence) {
+        updateConfluenceUI(data.confluence, data.breakout_radar);
       }
     }
 
@@ -1928,8 +2256,8 @@
         updateMarketStatusBadge(tick.market_status);
       }
 
-      if (tick.breakout_radar) {
-        updateRadarUI(tick.breakout_radar);
+      if (tick.confluence) {
+        updateConfluenceUI(tick.confluence, tick.breakout_radar);
       }
     }
 

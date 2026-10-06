@@ -16,6 +16,7 @@ from core.data import fetch_ohlcv, normalize_symbol
 from core.signals import analyze_symbol
 from core.market_hours import get_market_status
 from core.breakout import detect_breakout_confirmation
+from core.confluence import evaluate_master_confluence
 
 
 class RealTimeStreamEngine:
@@ -151,6 +152,7 @@ class RealTimeStreamEngine:
                 },
                 "tape_history": state["tape_history"][:5],
                 "breakout_radar": detect_breakout_confirmation(state.get("df"), current_price=curr_p),
+                "confluence": evaluate_master_confluence(state.get("df"), current_price=curr_p, capital=state["capital"], risk_pct=state["risk_pct"]),
                 "timestamp": int(time.time())
             }
 
@@ -354,6 +356,7 @@ class RealTimeStreamEngine:
             },
             "tape_history": state["tape_history"][:5],
             "breakout_radar": detect_breakout_confirmation(state.get("df"), current_price=new_price),
+            "confluence": evaluate_master_confluence(state.get("df"), current_price=new_price, capital=state["capital"], risk_pct=state["risk_pct"]),
             "timestamp": int(time.time())
         }
 

@@ -19,6 +19,7 @@ from core.data import (
 )
 from core.signals import analyze_symbol
 from core.breakout import detect_breakout_confirmation
+from core.confluence import evaluate_master_confluence
 from core.stream import stream_engine
 from core.market_hours import get_market_status, get_asset_category
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -323,6 +324,8 @@ def get_analysis(
 
     # Compute breakout & confluence confirmation radar
     radar = detect_breakout_confirmation(df, current_price=curr_price)
+    # Compute master 95% confluence engine
+    confluence = evaluate_master_confluence(df, current_price=curr_price, capital=capital, risk_pct=risk_pct)
 
     payload = {
         "symbol": resolved_sym,
@@ -334,6 +337,7 @@ def get_analysis(
         "change_pct": round(pct_change, 2),
         "candles": candles,
         "breakout_radar": radar,
+        "confluence": confluence,
         "market_status": get_market_status(resolved_sym)
     }
 
@@ -356,6 +360,24 @@ def get_breakout_radar(
         return detect_breakout_confirmation(df)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to calculate breakout radar for {symbol}: {str(e)}")
+
+
+@app.get("/api/confluence")
+def get_confluence(
+    symbol: str = Query("TATAPOWER.NS", description="Stock ticker"),
+    timeframe: str = Query("1d", description="Timeframe"),
+    capital: float = Query(5000.0, description="Trading capital"),
+    risk_pct: float = Query(0.02, description="Risk fraction")
+):
+    """
+    Return Master 95% Institutional Confluence analysis:
+    4-Point Checklist, Market Structure, S/R Zones, Candlestick Anatomy, VSA, Indicators, Multi-TF Triad.
+    """
+    try:
+        df = fetch_ohlcv(symbol, timeframe=timeframe)
+        return evaluate_master_confluence(df, capital=capital, risk_pct=risk_pct)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to calculate confluence for {symbol}: {str(e)}")
 
 
 @app.get("/api/market-status")
