@@ -698,25 +698,72 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-sm);
-      padding: 10px 14px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .exec-header-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .exec-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
+    .exec-title-badge {
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--color-accent-amber);
+      text-transform: uppercase;
+    }
+
+    .exec-adr-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--color-bull);
+      font-family: var(--font-mono);
+    }
+
     .exec-levels-grid {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+      gap: 10px;
+      align-items: stretch;
     }
 
     .exec-item {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      justify-content: space-between;
+      gap: 3px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .exec-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
     }
 
     .exec-label {
@@ -726,11 +773,65 @@
       color: var(--text-muted);
     }
 
+    .exec-pill {
+      font-size: 8.5px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--color-accent-blue);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .exec-pill.anti-hunt-pill {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--color-bear);
+    }
+
+    .exec-pill.tp-bank-pill {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-bull);
+    }
+
+    .exec-pill.tp-runner-pill {
+      background: rgba(168, 85, 247, 0.15);
+      color: #C084FC;
+    }
+
     .exec-val {
       font-family: var(--font-mono);
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 800;
       color: var(--text-primary);
+      margin: 1px 0;
+    }
+
+    .exec-sub {
+      font-size: 9px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .exec-trade-management-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px dashed rgba(59, 130, 246, 0.25);
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    .mgmt-icon {
+      font-size: 13px;
+      flex-shrink: 0;
     }
 
     .btn-copy-order {
@@ -1945,29 +2046,79 @@
           </div>
 
           <div class="execution-levels-box" id="confluenceExecutionBox">
+            <div class="exec-header-row">
+              <div class="exec-title-group">
+                <span class="exec-title-badge">⚡ INSTITUTIONAL EXECUTION RADAR</span>
+                <span class="exec-adr-badge" id="confAdrBadge">🟢 HIGH INTRADAY FEASIBILITY (ADR 14)</span>
+              </div>
+              <button class="btn-copy-order" id="btnCopyConfluenceOrder" onclick="copyConfluenceOrder()">📋 Copy Bracket Order</button>
+            </div>
+            
             <div class="exec-levels-grid">
+              <!-- Action & Sizing -->
               <div class="exec-item">
-                <span class="exec-label">Action</span>
+                <div class="exec-label-row">
+                  <span class="exec-label">Action & Sizing</span>
+                </div>
                 <span class="exec-val" id="confExecAction" style="color: var(--color-bull);">BUY / LONG</span>
+                <span class="exec-sub" id="confExecQty">-- Qty (Max Risk ₹--)</span>
               </div>
+
+              <!-- Recommended Entry (Dual Engine) -->
               <div class="exec-item">
-                <span class="exec-label">Planned Entry</span>
+                <div class="exec-label-row">
+                  <span class="exec-label">Planned Entry</span>
+                  <span class="exec-pill" id="confEntryTypePill">LIMIT RETEST</span>
+                </div>
                 <span class="exec-val" id="confExecEntry" style="color: var(--color-accent-blue);">₹...</span>
+                <span class="exec-sub" id="confEntryAlternatives">Limit: ₹... | Mkt: ₹...</span>
               </div>
+
+              <!-- Anti-Hunt Invalidation SL -->
               <div class="exec-item">
-                <span class="exec-label">Stop Loss</span>
+                <div class="exec-label-row">
+                  <span class="exec-label">Anti-Hunt SL</span>
+                  <span class="exec-pill anti-hunt-pill" id="confSlBufferPill">🛡️ 0.35x ATR</span>
+                </div>
                 <span class="exec-val" id="confExecSL" style="color: var(--color-bear);">₹...</span>
+                <span class="exec-sub" id="confSlInvalidation">Thesis invalidation anchor</span>
               </div>
+
+              <!-- TP1: 1:2.0 -->
               <div class="exec-item">
-                <span class="exec-label">Target 1 (1:2)</span>
+                <div class="exec-label-row">
+                  <span class="exec-label">TP1 (1:2.0)</span>
+                  <span class="exec-pill tp-bank-pill">BANK 50% ➔ BE</span>
+                </div>
                 <span class="exec-val" id="confExecT1" style="color: var(--color-bull);">₹...</span>
+                <span class="exec-sub" id="confExecT1Sub">+₹... (+4.0%)</span>
               </div>
+
+              <!-- TP2: 1:3.5 -->
               <div class="exec-item">
-                <span class="exec-label">Target 2 (1:3)</span>
+                <div class="exec-label-row">
+                  <span class="exec-label">TP2 (1:3.5)</span>
+                  <span class="exec-pill tp-bank-pill">BANK 30%</span>
+                </div>
                 <span class="exec-val" id="confExecT2" style="color: var(--color-bull);">₹...</span>
+                <span class="exec-sub" id="confExecT2Sub">1.618 Fib Golden Ext</span>
+              </div>
+
+              <!-- TP3: 1:5.0 Runner -->
+              <div class="exec-item">
+                <div class="exec-label-row">
+                  <span class="exec-label">TP3 (1:5.0)</span>
+                  <span class="exec-pill tp-runner-pill">20% RUNNER</span>
+                </div>
+                <span class="exec-val" id="confExecT3" style="color: #10B981;">₹...</span>
+                <span class="exec-sub" id="confExecT3Sub">Macro HTF Target</span>
               </div>
             </div>
-            <button class="btn-copy-order" id="btnCopyConfluenceOrder" onclick="copyConfluenceOrder()">📋 Copy Order</button>
+
+            <div class="exec-trade-management-banner" id="confTradeManagementBanner">
+              <span class="mgmt-icon">🎯</span>
+              <span class="mgmt-text" id="confTradeMgmtText">Trade Management: Once TP1 hits, move SL immediately to Breakeven (+0.15% fee buffer). Never move SL away from price.</span>
+            </div>
           </div>
         </div>
       </div>
@@ -2159,6 +2310,7 @@
     let tvStopLossLine = null;
     let tvTarget1Line = null;
     let tvTarget2Line = null;
+    let tvTarget3Line = null;
     let tvBreakoutLine = null;
 
     // Indicator Line Series
@@ -2635,6 +2787,58 @@
           }
         }
       }
+
+      // 5. Institutional Risk/Reward Visual Zone Overlay (TradingView Position tool style)
+      if (showChartPriceLines && currentConfluence && currentConfluence.execution_plan) {
+        const ep = currentConfluence.execution_plan;
+        if (ep.entry_price > 0 && ep.stop_loss > 0 && ep.target_1 > 0) {
+          const yEntry = tvCandleSeries.priceToCoordinate(ep.entry_price);
+          const ySL = tvCandleSeries.priceToCoordinate(ep.stop_loss);
+          const yTP1 = tvCandleSeries.priceToCoordinate(ep.target_1);
+
+          if (yEntry !== null && ySL !== null && yTP1 !== null) {
+            const isLong = ep.direction === 'LONG';
+            const boxX = Math.max(10, chartPlotWidth * 0.72);
+            const boxW = Math.max(70, chartPlotWidth - boxX - 10);
+
+            // Risk Box (Entry to SL)
+            const riskTop = Math.min(yEntry, ySL);
+            const riskH = Math.max(3, Math.abs(yEntry - ySL));
+            ctx.save();
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+            ctx.fillRect(boxX, riskTop, boxW, riskH);
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.strokeRect(boxX, riskTop, boxW, riskH);
+
+            // Reward Box (Entry to TP1)
+            const rewardTop = Math.min(yEntry, yTP1);
+            const rewardH = Math.max(3, Math.abs(yEntry - yTP1));
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+            ctx.fillRect(boxX, rewardTop, boxW, rewardH);
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.strokeRect(boxX, rewardTop, boxW, rewardH);
+
+            // Position Tool Summary Badge
+            const badgeW = 100;
+            const badgeH = 15;
+            const badgeY = Math.max(4, yEntry - 8);
+            const badgeX = boxX + 4;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            ctx.strokeStyle = '#3B82F6';
+            ctx.setLineDash([]);
+            ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            ctx.fillStyle = '#60A5FA';
+            ctx.fillText(`R:R ${ep.blended_rr || '1:2.8'} • 50% ➔ BE`, badgeX + 4, badgeY + 11);
+            ctx.restore();
+          }
+        }
+      }
     }
 
     function updateChartPriceLines(conf) {
@@ -2645,6 +2849,7 @@
       if (tvStopLossLine) { try { tvCandleSeries.removePriceLine(tvStopLossLine); } catch(e){} tvStopLossLine = null; }
       if (tvTarget1Line) { try { tvCandleSeries.removePriceLine(tvTarget1Line); } catch(e){} tvTarget1Line = null; }
       if (tvTarget2Line) { try { tvCandleSeries.removePriceLine(tvTarget2Line); } catch(e){} tvTarget2Line = null; }
+      if (tvTarget3Line) { try { tvCandleSeries.removePriceLine(tvTarget3Line); } catch(e){} tvTarget3Line = null; }
 
       if (!showChartPriceLines || !conf || !conf.execution_plan) {
         renderZonesOverlay();
@@ -2678,7 +2883,7 @@
         });
       }
 
-      // 3. TARGET 1 / TAKE PROFIT (Vertical axis text: TP)
+      // 3. TARGET 1 / TAKE PROFIT (Vertical axis text: TP1)
       if (ep.target_1 > 0) {
         tvTarget1Line = tvCandleSeries.createPriceLine({
           price: ep.target_1,
@@ -2686,7 +2891,7 @@
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: 'TP'
+          title: 'TP1'
         });
       }
 
@@ -2698,7 +2903,19 @@
           lineWidth: 1.5,
           lineStyle: LightweightCharts.LineStyle.Dotted,
           axisLabelVisible: false,
-          title: 'T2'
+          title: 'TP2'
+        });
+      }
+
+      // Moonbag Runner Target 3 (On chart canvas only; axisLabelVisible: false to prevent axis clutter)
+      if (ep.target_3 > 0) {
+        tvTarget3Line = tvCandleSeries.createPriceLine({
+          price: ep.target_3,
+          color: '#8B5CF6',
+          lineWidth: 1.5,
+          lineStyle: LightweightCharts.LineStyle.Dotted,
+          axisLabelVisible: false,
+          title: 'TP3'
         });
       }
 
@@ -2954,19 +3171,90 @@
       if (conf.execution_plan) {
         const ep = conf.execution_plan;
         const execAction = document.getElementById('confExecAction');
+        const execQty = document.getElementById('confExecQty');
+        const entryPill = document.getElementById('confEntryTypePill');
         const execEntry = document.getElementById('confExecEntry');
+        const entryAlts = document.getElementById('confEntryAlternatives');
+        const slBufferPill = document.getElementById('confSlBufferPill');
         const execSL = document.getElementById('confExecSL');
+        const slInvalidation = document.getElementById('confSlInvalidation');
         const execT1 = document.getElementById('confExecT1');
+        const t1Sub = document.getElementById('confExecT1Sub');
         const execT2 = document.getElementById('confExecT2');
+        const t2Sub = document.getElementById('confExecT2Sub');
+        const execT3 = document.getElementById('confExecT3');
+        const t3Sub = document.getElementById('confExecT3Sub');
+        const adrBadge = document.getElementById('confAdrBadge');
+        const tradeMgmtText = document.getElementById('confTradeMgmtText');
 
         if (execAction) {
           execAction.textContent = ep.direction === 'LONG' ? 'BUY / LONG' : 'SELL / SHORT';
           execAction.style.color = ep.direction === 'LONG' ? 'var(--color-bull)' : 'var(--color-bear)';
         }
-        if (execEntry) execEntry.textContent = `${cSym}${ep.entry_price.toFixed(2)}`;
-        if (execSL) execSL.textContent = `${cSym}${ep.stop_loss.toFixed(2)}`;
-        if (execT1) execT1.textContent = `${cSym}${ep.target_1.toFixed(2)}`;
-        if (execT2) execT2.textContent = `${cSym}${ep.target_2.toFixed(2)}`;
+        if (execQty) {
+          execQty.textContent = `${ep.position_quantity || 1} Qty (${cSym}${ep.capital_risk_amount || 100} Risk)`;
+        }
+        if (entryPill) {
+          entryPill.textContent = ep.recommended_entry_type || 'LIMIT RETEST';
+        }
+        if (execEntry) {
+          execEntry.textContent = `${cSym}${ep.entry_price.toFixed(2)}`;
+        }
+        if (entryAlts) {
+          const lmt = ep.entry_limit_retest !== undefined ? ep.entry_limit_retest : ep.entry_price;
+          const mkt = ep.entry_market !== undefined ? ep.entry_market : ep.entry_price;
+          entryAlts.textContent = `Limit: ${cSym}${lmt.toFixed(2)} | Mkt: ${cSym}${mkt.toFixed(2)}`;
+        }
+        if (slBufferPill) {
+          slBufferPill.textContent = `🛡️ ${cSym}${(ep.anti_hunt_buffer || 0).toFixed(2)} Buffer`;
+        }
+        if (execSL) {
+          execSL.textContent = `${cSym}${ep.stop_loss.toFixed(2)}`;
+        }
+        if (slInvalidation) {
+          slInvalidation.textContent = ep.direction === 'LONG' ? 'Invalidates below demand base' : 'Invalidates above supply high';
+        }
+        if (execT1) {
+          execT1.textContent = `${cSym}${ep.target_1.toFixed(2)}`;
+        }
+        if (t1Sub) {
+          const diff1 = Math.abs(ep.target_1 - ep.entry_price);
+          t1Sub.textContent = `+${cSym}${diff1.toFixed(2)} (${ep.target_1_pct || 4.0}%)`;
+        }
+        if (execT2) {
+          execT2.textContent = `${cSym}${ep.target_2.toFixed(2)}`;
+        }
+        if (t2Sub) {
+          const diff2 = Math.abs(ep.target_2 - ep.entry_price);
+          t2Sub.textContent = `+${cSym}${diff2.toFixed(2)} (${ep.target_2_pct || 7.0}%)`;
+        }
+        const t3Price = ep.target_3 || (ep.target_2 * 1.05);
+        if (execT3) {
+          execT3.textContent = `${cSym}${t3Price.toFixed(2)}`;
+        }
+        if (t3Sub) {
+          const diff3 = Math.abs(t3Price - ep.entry_price);
+          t3Sub.textContent = `+${cSym}${diff3.toFixed(2)} (${ep.target_3_pct || 10.0}%)`;
+        }
+        if (adrBadge && ep.adr_feasibility) {
+          adrBadge.textContent = ep.adr_feasibility;
+          if (ep.adr_feasibility.includes('HIGH')) {
+            adrBadge.style.color = 'var(--color-bull)';
+            adrBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+            adrBadge.style.background = 'rgba(16, 185, 129, 0.12)';
+          } else if (ep.adr_feasibility.includes('MODERATE')) {
+            adrBadge.style.color = 'var(--color-accent-amber)';
+            adrBadge.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+            adrBadge.style.background = 'rgba(245, 158, 11, 0.12)';
+          } else {
+            adrBadge.style.color = 'var(--color-accent-blue)';
+            adrBadge.style.borderColor = 'rgba(59, 130, 246, 0.35)';
+            adrBadge.style.background = 'rgba(59, 130, 246, 0.12)';
+          }
+        }
+        if (tradeMgmtText) {
+          tradeMgmtText.textContent = `Trade Management: Once TP1 hits, move SL to Breakeven (${cSym}${(ep.breakeven_price || ep.entry_price).toFixed(2)}). ${ep.target_1_rule || ''} Blended R:R: ${ep.blended_rr || '1:2.8'}.`;
+        }
       }
 
       // 9. Synchronize clean price lines on chart
@@ -2980,27 +3268,44 @@
       }
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
       const ep = currentConfluence.execution_plan;
+      const t3Val = ep.target_3 || (ep.target_2 * 1.05);
       const text = [
-        `ALPHAEDGE 95% CONFLUENCE ORDER`,
-        `Symbol: ${currentSymbol} (${ep.direction})`,
-        `Grade: ${currentConfluence.grade} (${currentConfluence.accuracy_score}%)`,
-        `Action: ${currentConfluence.action}`,
-        `Planned Entry: ${cSym}${ep.entry_price.toFixed(2)}`,
-        `Stop Loss: ${cSym}${ep.stop_loss.toFixed(2)}`,
-        `Target 1 (1:2 R:R): ${cSym}${ep.target_1.toFixed(2)}`,
-        `Target 2 (1:3 R:R): ${cSym}${ep.target_2.toFixed(2)}`,
-        `Position Size: ${ep.position_quantity} shares (${cSym}${ep.capital_risk_amount} max risk)`,
-        `Risk Rule: ${ep.capital_protection_rule}`
-      ].join('\\n');
+        `========================================`,
+        `🎯 ALPHAEDGE INSTITUTIONAL BRACKET ORDER`,
+        `========================================`,
+        `Symbol: ${currentSymbol} | Setup: ${ep.direction} (${currentConfluence.grade})`,
+        `Confluence Score: ${currentConfluence.accuracy_score}% Probability`,
+        `----------------------------------------`,
+        `[ENTRY] Recommended: ${ep.recommended_entry_type || 'LIMIT RETEST'} @ ${cSym}${ep.entry_price.toFixed(2)}`,
+        `  • Limit Retest Discount: ${cSym}${(ep.entry_limit_retest || ep.entry_price).toFixed(2)}`,
+        `  • Momentum Market Price: ${cSym}${(ep.entry_market || ep.entry_price).toFixed(2)}`,
+        `  • Breakout Trigger: ${cSym}${(ep.entry_breakout_trigger || ep.entry_price).toFixed(2)}`,
+        `----------------------------------------`,
+        `[STOP LOSS] Anti-Hunt Invalidation @ ${cSym}${ep.stop_loss.toFixed(2)}`,
+        `  • Buffer: ${cSym}${(ep.anti_hunt_buffer || 0).toFixed(2)} (0.35x ATR noise cushion)`,
+        `  • Thesis: ${ep.sl_invalidation_logic || 'Thesis invalidation anchor'}`,
+        `----------------------------------------`,
+        `[TAKE PROFIT LADDER]`,
+        `  • TP1 (1:2.0): ${cSym}${ep.target_1.toFixed(2)} (Bank 50% & Slide SL to Breakeven at ${cSym}${(ep.breakeven_price || ep.entry_price).toFixed(2)})`,
+        `  • TP2 (1:3.5): ${cSym}${ep.target_2.toFixed(2)} (Bank 30% - 1.618 Fib Extension)`,
+        `  • TP3 (1:5.0): ${cSym}${t3Val.toFixed(2)} (20% Moonbag Runner - HTF Target)`,
+        `----------------------------------------`,
+        `[RISK & SIZING]`,
+        `  • Position Size: ${ep.position_quantity || 1} shares`,
+        `  • Max Risk: ${cSym}${(ep.capital_risk_amount || 100).toFixed(2)} (Capped at 2% capital)`,
+        `  • Projected Payout: +${cSym}${(ep.projected_profit || 0).toFixed(2)} (${ep.blended_rr || '1:2.8'} Profit Factor)`,
+        `  • ADR Feasibility: ${ep.adr_feasibility || 'Intraday Feasible'}`,
+        `========================================`
+      ].join('\n');
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
-          showNotification('📋 95% Confluence Order copied to clipboard!');
+          showNotification('📋 Institutional Bracket Order copied to clipboard!');
         }).catch(() => {
           showNotification('⚠️ Clipboard permission denied.');
         });
       } else {
-        showNotification('📋 Order: ' + `${cSym}${ep.entry_price} | SL: ${cSym}${ep.stop_loss} | TP: ${cSym}${ep.target_1}`);
+        showNotification('📋 Order: ' + `${cSym}${ep.entry_price} | SL: ${cSym}${ep.stop_loss} | TP1: ${cSym}${ep.target_1} | TP2: ${cSym}${ep.target_2}`);
       }
     }
 
@@ -3719,10 +4024,12 @@
         const chgSign = chgVal >= 0 ? '+' : '';
         const chgFmt = `${chgSign}${chgVal.toFixed(2)}%`;
 
+        const entryTypeTag = item.entry_type === 'MOMENTUM MARKET' ? 'Mkt' : 'Lmt';
         const entryFmt = item.entry_price > 0 ? `${currSym}${parseFloat(item.entry_price).toFixed(2)}` : 'At Mkt';
         const slFmt = item.stop_loss > 0 ? `${currSym}${parseFloat(item.stop_loss).toFixed(2)}` : '--';
         const t1Fmt = item.target_1 > 0 ? `${currSym}${parseFloat(item.target_1).toFixed(2)}` : '--';
         const t2Fmt = item.target_2 > 0 ? `${currSym}${parseFloat(item.target_2).toFixed(2)}` : '--';
+        const t3Fmt = item.target_3 > 0 ? `${currSym}${parseFloat(item.target_3).toFixed(2)}` : '--';
         const rrFmt = item.risk_reward || '1:2.0';
 
         // Category Tag
@@ -3787,7 +4094,7 @@
           </td>
           <td>
             <div class="screener-exec-box">
-              <span>Entry: <b class="screener-entry-val">${entryFmt}</b></span>
+              <span>${entryTypeTag}: <b class="screener-entry-val">${entryFmt}</b></span>
               <span>SL: <b class="screener-sl-val">${slFmt}</b></span>
             </div>
           </td>
@@ -3795,6 +4102,7 @@
             <div class="screener-exec-box">
               <span>T1: <b class="screener-target-val">${t1Fmt}</b></span>
               <span>T2: <b class="screener-target-val">${t2Fmt}</b></span>
+              ${item.target_3 > 0 ? `<span>T3: <b class="screener-target-val" style="color: #10B981;">${t3Fmt}</b></span>` : ''}
               <span class="screener-rr-tag" style="margin-top: 2px;">R:R ${escapeHtml(rrFmt)}</span>
             </div>
           </td>

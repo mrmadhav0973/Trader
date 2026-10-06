@@ -144,6 +144,11 @@ def refresh_screener_cache(
                 sl_p = round(float(ep.get("stop_loss", curr_p * 0.98)), 2)
                 t1_p = round(float(ep.get("target_1", curr_p * 1.04)), 2)
                 t2_p = round(float(ep.get("target_2", curr_p * 1.06)), 2)
+                t3_p = round(float(ep.get("target_3", t2_p * 1.04 if trade_dir == "LONG" else t2_p * 0.96)), 2)
+                entry_type = ep.get("recommended_entry_type", "LIMIT RETEST")
+                entry_limit = round(float(ep.get("entry_limit_retest", entry_p)), 2)
+                anti_hunt = round(float(ep.get("anti_hunt_buffer", 0.0)), 2)
+                adr_feas = ep.get("adr_feasibility", "")
                 rr_ratio = ep.get("risk_reward_ratio", "1:2.0")
                 qty = int(ep.get("position_quantity", 1))
                 max_loss = round(float(ep.get("capital_risk_amount", 100.0)), 2)
@@ -199,12 +204,17 @@ def refresh_screener_cache(
                     "grade": grade,
                     "badge_color": badge_color,
                     "entry_price": entry_p,
+                    "entry_type": entry_type,
+                    "entry_limit_retest": entry_limit,
                     "stop_loss": sl_p,
+                    "anti_hunt_buffer": anti_hunt,
                     "target_1": t1_p,
                     "target_2": t2_p,
+                    "target_3": t3_p,
                     "risk_reward": rr_ratio,
                     "quantity": qty,
-                    "max_loss": max_loss
+                    "max_loss": max_loss,
+                    "adr_feasibility": adr_feas
                 }
             except Exception:
                 return None

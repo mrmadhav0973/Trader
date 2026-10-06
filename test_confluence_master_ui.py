@@ -70,12 +70,35 @@ def run_test():
             exec_entry = page.locator("#confExecEntry").inner_text()
             exec_sl = page.locator("#confExecSL").inner_text()
             exec_tp1 = page.locator("#confExecT1").inner_text()
+            exec_tp2 = page.locator("#confExecT2").inner_text()
+            exec_tp3 = page.locator("#confExecT3").inner_text()
+            adr_badge = page.locator("#confAdrBadge").inner_text()
+            entry_pill = page.locator("#confEntryTypePill").inner_text()
+            sl_pill = page.locator("#confSlBufferPill").inner_text()
+            trade_mgmt = page.locator("#confTradeMgmtText").inner_text()
 
             print(f"Action: {action_text}", flush=True)
             print(f"Accuracy: {accuracy_text}", flush=True)
             print(f"Setup Tag: {setup_tag}", flush=True)
             print(f"Grade: {rule_title}", flush=True)
-            print(f"Entry: {exec_entry} | SL: {exec_sl} | TP1: {exec_tp1}", flush=True)
+            print(f"Entry ({entry_pill}): {exec_entry} | SL ({sl_pill}): {exec_sl}", flush=True)
+            print(f"TP Ladder -> TP1: {exec_tp1} | TP2: {exec_tp2} | TP3: {exec_tp3}", flush=True)
+            print(f"ADR Badge: {adr_badge}", flush=True)
+            print(f"Trade Management: {trade_mgmt}", flush=True)
+
+            assert len(exec_tp1) > 1, "TP1 missing"
+            assert len(exec_tp2) > 1, "TP2 missing"
+            assert len(exec_tp3) > 1, "TP3 missing"
+            assert len(adr_badge) > 5, "ADR feasibility badge missing"
+            assert len(entry_pill) >= 3, "Entry pill missing"
+            assert len(sl_pill) >= 3, "Anti-hunt buffer pill missing"
+
+            # Test Copy Bracket Order Button
+            print("Testing 'Copy Bracket Order' button...", flush=True)
+            page.click("#btnCopyConfluenceOrder")
+            time.sleep(0.3)
+            toast_text = page.locator("#statusToast").inner_text()
+            print(f"Toast Notification: {toast_text}", flush=True)
 
             # Test Tab Switching
             print("Testing Tab 2 (Candlestick & VSA)...", flush=True)
@@ -277,23 +300,19 @@ def run_test():
             print(f"First setup confluence score pill: {first_score_text}", flush=True)
             assert "%" in first_score_text and "Pillars" in first_score_text
 
-            # Test local search filter
-            print("Testing local search filter input...", flush=True)
+            # Test local search filter and loading via "Analyze ↗"
+            print("Testing local search filter input with 'TATA'...", flush=True)
             page.fill("#screenerSearchInput", "TATA")
             time.sleep(0.5)
             filtered_count = page.evaluate("() => document.querySelectorAll('#screenerTableBody tr.screener-row').length")
             print(f"Filtered by 'TATA': {filtered_count} setups", flush=True)
             assert filtered_count >= 1
-            page.fill("#screenerSearchInput", "")
-            time.sleep(0.3)
 
             # Test jumping/loading a symbol into the chart terminal via "Analyze ↗"
-            print("Testing 'Analyze ↗' button navigation...", flush=True)
-            first_analyze_btn = page.locator("#screenerTableBody tr.screener-row .btn-screener-load").first
-            first_row_sym = page.locator("#screenerTableBody tr.screener-row .screener-sym-name").first.inner_text().strip()
-            print(f"Clicking Analyze on first setup ({first_row_sym})...", flush=True)
-            first_analyze_btn.click(force=True)
-            target_token = first_row_sym.split(".")[0]
+            print("Testing 'Analyze ↗' button navigation on TATAPOWER...", flush=True)
+            analyze_btn = page.locator("#screenerTableBody tr.screener-row .btn-screener-load").first
+            analyze_btn.click(force=True)
+            target_token = "TATAPOWER"
             print(f"Waiting for chart title to include '{target_token}'...", flush=True)
             page.wait_for_function(
                 f"() => {{ const el = document.getElementById('activeSymbolTitle'); return el && el.innerText.includes('{target_token}'); }}",
@@ -302,14 +321,19 @@ def run_test():
             active_title = page.locator("#activeSymbolTitle").inner_text()
             print(f"Active symbol title after screener click: {active_title}", flush=True)
 
+            # Clear search input for category test
+            page.fill("#screenerSearchInput", "")
+            time.sleep(0.4)
+
             # Test Quick Category Filter Pill (Crypto 24/7)
             print("Testing Category filter pill ('Crypto 24/7')...", flush=True)
             page.click("button.screener-pill-btn:has-text('Crypto 24/7')")
             time.sleep(1.0)
             page.wait_for_function(
-                "() => { const rows = document.querySelectorAll('#screenerTableBody tr.screener-row'); return rows.length > 0; }",
+                "() => { const rows = document.querySelectorAll('#screenerTableBody tr.screener-row'); const l = document.getElementById('screenerLoader'); return rows.length > 0 && (!l || l.style.display === 'none'); }",
                 timeout=30000
             )
+            time.sleep(0.5)
             crypto_rows = page.evaluate("() => document.querySelectorAll('#screenerTableBody tr.screener-row').length")
             print(f"Crypto filtered setups count: {crypto_rows}", flush=True)
             assert crypto_rows > 0

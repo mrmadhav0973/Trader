@@ -34,6 +34,7 @@ from core.smc import (
     detect_liquidity_sweeps
 )
 from core.breakout import detect_breakout_confirmation
+from core.execution_engine import calculate_perfect_execution_plan
 from core.advanced_confluence import (
     detect_fair_value_gaps as detect_advanced_fvgs,
     calculate_fibonacci_golden_pocket,
@@ -326,28 +327,46 @@ def evaluate_master_confluence(
         "detail": p3_detail
     })
 
-    # Point 4: Favorable Math (Strict SL & 1:2+ R:R)
+    # Point 4: Favorable Math (Strict Anti-Hunt SL & 3-Tier Take Profit Ladder)
+    exec_plan = calculate_perfect_execution_plan(
+        df=df,
+        current_price=curr_p,
+        direction="LONG" if overall_long else "SHORT",
+        nearest_demand=nearest_demand,
+        nearest_supply=nearest_supply,
+        fvgs=fvgs,
+        fib_data=fib_data,
+        breakout_radar=breakout_radar,
+        capital=capital,
+        risk_pct=risk_pct,
+        currency_symbol=c_sym
+    )
+
+    planned_entry = exec_plan["entry_price"]
+    planned_sl = exec_plan["stop_loss"]
+    planned_t1 = exec_plan["target_1"]
+    planned_t2 = exec_plan["target_2"]
+    planned_t3 = exec_plan["target_3"]
+    risk = exec_plan["risk_per_share"]
+    p4_passed = risk > 0 and abs(planned_t1 - planned_entry) >= (risk * 1.8)
+
     if overall_long:
-        planned_entry = round(curr_p, 2)
-        planned_sl = round(min(c_low - atr * 0.25, (nearest_demand["low_price"] - atr * 0.20) if nearest_demand else (curr_p - atr * 1.5)), 2)
-        risk = max(0.5, planned_entry - planned_sl)
-        planned_t1 = round(planned_entry + (risk * 2.0), 2)
-        planned_t2 = round(planned_entry + (risk * 3.0), 2)
-        p4_passed = risk > 0 and (planned_t1 - planned_entry) >= (risk * 1.8)
-        p4_detail = f"Favorable Asymmetric Math: Risk: {c_sym}{risk:.2f} vs Target 1: +{c_sym}{(planned_t1 - planned_entry):.2f} (1:2.0 R:R). Next target: {c_sym}{planned_t2:.2f} (1:3.0 R:R)."
+        p4_detail = (
+            f"Favorable Asymmetric Math: Risk {c_sym}{risk:.2f} ({c_sym}{exec_plan['anti_hunt_buffer']:.2f} Anti-Hunt Buffer) "
+            f"vs TP1: +{c_sym}{(planned_t1 - planned_entry):.2f} (1:2.0 R:R), TP2: +{c_sym}{(planned_t2 - planned_entry):.2f} (1:3.5), "
+            f"TP3: +{c_sym}{(planned_t3 - planned_entry):.2f} (1:5.0 Runner). {exec_plan['adr_feasibility']}"
+        )
     else:
-        planned_entry = round(curr_p, 2)
-        planned_sl = round(max(c_high + atr * 0.25, (nearest_supply["high_price"] + atr * 0.20) if nearest_supply else (curr_p + atr * 1.5)), 2)
-        risk = max(0.5, planned_sl - planned_entry)
-        planned_t1 = round(planned_entry - (risk * 2.0), 2)
-        planned_t2 = round(planned_entry - (risk * 3.0), 2)
-        p4_passed = risk > 0 and (planned_entry - planned_t1) >= (risk * 1.8)
-        p4_detail = f"Favorable Asymmetric Math: Risk: {c_sym}{risk:.2f} vs Short Target 1: +{c_sym}{(planned_entry - planned_t1):.2f} (1:2.0 R:R). Next target: {c_sym}{planned_t2:.2f} (1:3.0 R:R)."
+        p4_detail = (
+            f"Favorable Asymmetric Math: Risk {c_sym}{risk:.2f} ({c_sym}{exec_plan['anti_hunt_buffer']:.2f} Anti-Hunt Buffer) "
+            f"vs Short TP1: +{c_sym}{(planned_entry - planned_t1):.2f} (1:2.0 R:R), TP2: +{c_sym}{(planned_entry - planned_t2):.2f} (1:3.5), "
+            f"TP3: +{c_sym}{(planned_entry - planned_t3):.2f} (1:5.0 Runner). {exec_plan['adr_feasibility']}"
+        )
 
     checklist.append({
         "id": "favorable_math",
         "title": "4. Asymmetric Risk-to-Reward Math",
-        "subtitle": "Minimum 1:2.0 R:R & Invalidation SL",
+        "subtitle": "Anti-Hunt SL & 3-Tier Take Profit Ladder",
         "passed": bool(p4_passed),
         "detail": p4_detail
     })
@@ -362,7 +381,7 @@ def evaluate_master_confluence(
         grade = "GRADE A+ (INSTITUTIONAL EDGE)"
         badge_color = "bull"
         action = "BUY / LONG" if overall_long else "SELL / SHORT"
-        verdict = f"Maximum Confluence Achieved (95% Accuracy Probability). All 4 masterclass pillars verified. Enter with defined Stop Loss at {c_sym}{planned_sl:.2f}."
+        verdict = f"Maximum Confluence Achieved (95% Accuracy Probability). All 4 masterclass pillars verified. Enter at {exec_plan['recommended_entry_type']} ({c_sym}{planned_entry:.2f}) with Anti-Hunt SL at {c_sym}{planned_sl:.2f}."
     elif passed_count == 3:
         accuracy_score = 85
         grade = "GRADE A (HIGH PROBABILITY)"
@@ -387,10 +406,6 @@ def evaluate_master_confluence(
         verdict += " ⚠️ TIME-OF-DAY ADVISORY: Currently in Midday Lunch Chop Dead Zone (11:30 - 13:30 IST). Option theta decay & false breakout risk."
     elif has_cvd_bear_exhaustion and overall_long:
         verdict += " ⚠️ ORDER FLOW WARNING: Bearish CVD exhaustion detected (aggressive buyers drying up)."
-
-    # Position Sizing
-    max_risk_amount = round(capital * risk_pct, 2)
-    position_qty = max(1, int(max_risk_amount / risk)) if risk > 0 else 1
 
     return {
         "status": "OK",
@@ -446,18 +461,7 @@ def evaluate_master_confluence(
             "ltf_trigger": ltf_status,
             "triad_alignment": "3/3 FULLY ALIGNED" if (htf_bullish and mtf_bullish and ltf_bullish) or (htf_bearish and mtf_bearish and ltf_bearish) else ("2/3 PARTIAL ALIGNMENT" if (htf_bullish == mtf_bullish or mtf_bullish == ltf_bullish) else "CONFLICTING / CHOPPY")
         },
-        "execution_plan": {
-            "direction": "LONG" if overall_long else "SHORT",
-            "entry_price": planned_entry,
-            "stop_loss": planned_sl,
-            "target_1": planned_t1,
-            "target_2": planned_t2,
-            "risk_per_share": round(risk, 2),
-            "risk_reward_ratio": "1:2.0",
-            "capital_risk_amount": max_risk_amount,
-            "position_quantity": position_qty,
-            "capital_protection_rule": f"Risk capped at {risk_pct*100:.0f}% of {c_sym}{capital:,.0f} ({c_sym}{max_risk_amount:.2f}). Never move Stop Loss away from price."
-        },
+        "execution_plan": exec_plan,
         "all_sr_zones": sr_zones,
         "fvgs": fvgs,
         "fib_golden_pocket": fib_data,
