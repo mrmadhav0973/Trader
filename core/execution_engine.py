@@ -90,8 +90,10 @@ def calculate_perfect_execution_plan(
             discount_candidates.append((fib_ote, "Fibonacci Golden Ratio OTE (0.705)"))
 
         # 3. Top of Institutional Demand Zone
-        if nearest_demand and nearest_demand.get("high_price", 0) < curr_p:
-            discount_candidates.append((nearest_demand["high_price"], "Institutional Demand Zone Boundary"))
+        if nearest_demand:
+            d_high = nearest_demand.get("max_price") or nearest_demand.get("high_price") or nearest_demand.get("mid_price")
+            if d_high and d_high < curr_p:
+                discount_candidates.append((d_high, "Institutional Demand Zone Boundary"))
 
         # 4. Pullback to VWAP / EMA 20
         if vwap < curr_p and (curr_p - vwap) / curr_p <= 0.02:
@@ -140,8 +142,10 @@ def calculate_perfect_execution_plan(
         if fib_ote and fib_ote > curr_p:
             premium_candidates.append((fib_ote, "Fibonacci Golden Ratio OTE (0.705)"))
 
-        if nearest_supply and nearest_supply.get("low_price", 0) > curr_p:
-            premium_candidates.append((nearest_supply["low_price"], "Institutional Supply Zone Boundary"))
+        if nearest_supply:
+            s_low = nearest_supply.get("min_price") or nearest_supply.get("low_price") or nearest_supply.get("mid_price")
+            if s_low and s_low > curr_p:
+                premium_candidates.append((s_low, "Institutional Supply Zone Boundary"))
 
         if vwap > curr_p and (vwap - curr_p) / curr_p <= 0.02:
             premium_candidates.append((vwap, "Session VWAP Overhead Retest"))
@@ -181,9 +185,10 @@ def calculate_perfect_execution_plan(
 
     if is_long:
         # Base anchor: Demand zone low, or lowest rejection wick low
-        if nearest_demand and nearest_demand.get("low_price", 0) > 0:
-            structural_base = min(c_low, nearest_demand["low_price"])
-            anchor_name = f"Demand Zone Base ({c_sym}{nearest_demand['low_price']:.2f})"
+        d_low = nearest_demand.get("min_price") or nearest_demand.get("low_price") if nearest_demand else None
+        if d_low and d_low > 0:
+            structural_base = min(c_low, d_low)
+            anchor_name = f"Demand Zone Base ({c_sym}{d_low:.2f})"
         else:
             structural_base = c_low
             anchor_name = f"Swing Pivot Low ({c_sym}{c_low:.2f})"
@@ -199,9 +204,10 @@ def calculate_perfect_execution_plan(
             f"Trade thesis invalidates if candle body closes below {c_sym}{planned_sl:.2f}."
         )
     else:
-        if nearest_supply and nearest_supply.get("high_price", 0) > 0:
-            structural_base = max(c_high, nearest_supply["high_price"])
-            anchor_name = f"Supply Zone High ({c_sym}{nearest_supply['high_price']:.2f})"
+        s_high = nearest_supply.get("max_price") or nearest_supply.get("high_price") if nearest_supply else None
+        if s_high and s_high > 0:
+            structural_base = max(c_high, s_high)
+            anchor_name = f"Supply Zone High ({c_sym}{s_high:.2f})"
         else:
             structural_base = c_high
             anchor_name = f"Swing Pivot High ({c_sym}{c_high:.2f})"

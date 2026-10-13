@@ -234,6 +234,34 @@ def run_test():
             page.click("#btnToggleZones")
             time.sleep(0.2)
 
+            print("Testing Channel Toggle...", flush=True)
+            page.click("#btnToggleChannel")
+            time.sleep(0.2)
+            ch_text = page.locator("#btnToggleChannel").inner_text()
+            print(f"Channel Toggle text: {ch_text}", flush=True)
+            assert "OFF" in ch_text
+            page.click("#btnToggleChannel")
+            time.sleep(0.2)
+
+            # Verify S/R Zones sleek ribbon thickness and Parallel Channel in currentData
+            sr_info = page.evaluate("""() => {
+              const zones = currentData && currentData.sr_zones ? currentData.sr_zones : [];
+              const channel = currentData && currentData.parallel_channel ? currentData.parallel_channel : null;
+              const maxThickness = zones.length > 0 ? Math.max(...zones.map(z => z.max_price - z.min_price)) : 0;
+              return {
+                count: zones.length,
+                maxThickness: maxThickness,
+                channelActive: channel && channel.active,
+                channelType: channel ? channel.channel_type : null,
+                channelStatus: channel ? channel.status : null
+              };
+            }""")
+            print(f"S/R Zones count: {sr_info['count']}, Max Thickness: {sr_info['maxThickness']:.2f} pts", flush=True)
+            print(f"Parallel Channel: {sr_info['channelType']} | Status: {sr_info['channelStatus']}", flush=True)
+            assert sr_info['count'] > 0, "No S/R zones generated"
+            assert sr_info['maxThickness'] < 3.0, f"S/R zones too wide! Expected < 3.0 pts, got {sr_info['maxThickness']}"
+            assert sr_info['channelActive'], "Parallel channel should be active"
+
             print("Testing FVG Toggle...", flush=True)
             page.click("#btnToggleFvg")
             time.sleep(0.2)
@@ -269,6 +297,51 @@ def run_test():
             print(f"Levels button text: {levels_btn_text}", flush=True)
             page.click("#btnToggleChartLevels")
             time.sleep(0.3)
+
+            # Save S/R & Parallel Channel Chart Screenshot
+            chart_shot_path = os.path.join(artifact_dir, "sr_channel_chart_verified.png")
+            page.screenshot(path=chart_shot_path)
+            print(f"Saved S/R & Channel chart screenshot to {chart_shot_path}", flush=True)
+
+            # Test Multi-Timeframe Harmonized Asset Confluence Consistency
+            print("Testing Multi-Timeframe Confluence Consistency on 5m...", flush=True)
+            score_1d = page.locator("#confluenceAccuracyText").inner_text()
+            print(f"1D Master Confluence: {score_1d}", flush=True)
+
+            # Click 5m button exactly
+            page.get_by_role("button", name="5m", exact=True).click()
+            time.sleep(2.5)
+            page.wait_for_function(
+                "() => { const el = document.getElementById('confluenceAccuracyText'); return el && el.innerText.trim() !== '0% (0/4)'; }",
+                timeout=25000
+            )
+
+            score_5m = page.locator("#confluenceAccuracyText").inner_text()
+            setup_tag_5m = page.locator("#confluenceSetupTag").inner_text()
+            print(f"5m Master Confluence: {score_5m} | Setup Tag: {setup_tag_5m}", flush=True)
+
+            mtf_eval = page.evaluate("""() => {
+              const mtf = currentConfluence && currentConfluence.mtf_alignment ? currentConfluence.mtf_alignment : null;
+              return {
+                hasMtf: !!mtf,
+                macroScore: mtf ? mtf.macro_score : null,
+                ltfScore: mtf ? mtf.ltf_score : null,
+                harmonizedScore: mtf ? mtf.master_asset_score : null,
+                summary: mtf ? mtf.harmonized_summary : null
+              };
+            }""")
+            print(f"MTF Evaluation: {mtf_eval}", flush=True)
+            assert mtf_eval['hasMtf'], "MTF alignment missing from 5m confluence response"
+            # Harmonized score on 5m should be strong and anchored to the macro reality
+            assert mtf_eval['harmonizedScore'] >= 70, f"Expected harmonized score >= 70%, got {mtf_eval['harmonizedScore']}%"
+
+            mtf_shot_path = os.path.join(artifact_dir, "mtf_harmonized_confluence.png")
+            page.screenshot(path=mtf_shot_path)
+            print(f"Saved MTF harmonized confluence screenshot to {mtf_shot_path}", flush=True)
+
+            # Switch back to 1D
+            page.get_by_role("button", name="1D", exact=True).click()
+            time.sleep(2.0)
 
             # Test Confluence Drawer Collapse/Expand
             print("Testing drawer collapse...", flush=True)

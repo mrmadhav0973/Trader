@@ -27,7 +27,8 @@ from core.patterns import (
     detect_swing_points,
     analyze_candlestick_anatomy,
     analyze_market_structure,
-    cluster_support_resistance_zones
+    cluster_support_resistance_zones,
+    calculate_algorithmic_parallel_channels
 )
 from core.smc import (
     detect_fair_value_gaps,
@@ -54,11 +55,14 @@ def evaluate_master_confluence(
     capital: float = 5000.0,
     risk_pct: float = 0.02,
     symbol: Optional[str] = None,
-    fast_news: bool = False
+    fast_news: bool = False,
+    df_macro: Optional[pd.DataFrame] = None,
+    timeframe: str = "1d"
 ) -> Dict[str, Any]:
     """
     Run comprehensive institutional analysis across all 8 masterclass dimensions
     and compute the 4-Point 95% Accuracy Confluence Checklist.
+    Harmonizes asset-level macro foundation with intraday execution timing.
     """
     if df is None or len(df) < 15:
         return {
@@ -75,14 +79,15 @@ def evaluate_master_confluence(
     if symbol is None:
         symbol = getattr(df, "attrs", {}).get("resolved_symbol", getattr(df, "attrs", {}).get("symbol", "TATAPOWER.NS")) if hasattr(df, "attrs") else "TATAPOWER.NS"
 
-    # Ensure all indicators are attached
+    # Ensure all indicators are attached to primary dataframe
     if "EMA_20" not in df.columns or "VWAP" not in df.columns:
         df = add_all_indicators(df)
 
     # 1. Swings, S/R Zones & Market Structure
     swing_highs, swing_lows = detect_swing_points(df, window=4)
     structure = analyze_market_structure(df, swing_highs, swing_lows)
-    sr_zones = cluster_support_resistance_zones(df, swing_highs, swing_lows, threshold_pct=0.015, max_zones=10)
+    sr_zones = cluster_support_resistance_zones(df, swing_highs, swing_lows, threshold_pct=0.015, max_zones=6)
+    parallel_channel = calculate_algorithmic_parallel_channels(df, swing_highs, swing_lows)
     
     # 2. Candlestick Anatomy & Liquidity Sweeps
     candle_patterns = analyze_candlestick_anatomy(df, lookback=5)
@@ -133,17 +138,17 @@ def evaluate_master_confluence(
     # -------------------------------------------------------------------------
     # A. S/R ZONES, S-R FLIP (POLARITY) & PSYCHOLOGICAL ROUND NUMBERS
     # -------------------------------------------------------------------------
-    demand_zones = [z for z in sr_zones if z["type"] == "DEMAND"]
-    supply_zones = [z for z in sr_zones if z["type"] == "SUPPLY"]
+    demand_zones = [z for z in sr_zones if z["type"] == "support" or z["type"] == "DEMAND"]
+    supply_zones = [z for z in sr_zones if z["type"] == "resistance" or z["type"] == "SUPPLY"]
 
     nearest_demand = min(demand_zones, key=lambda z: abs(curr_p - z["mid_price"])) if demand_zones else None
     nearest_supply = min(supply_zones, key=lambda z: abs(curr_p - z["mid_price"])) if supply_zones else None
 
     # Polarity / S-R Flip: Level that was broken through and now acts as opposing boundary
-    sr_flips = [z for z in sr_zones if z.get("is_sr_flip", False)]
+    sr_flips = [z for z in sr_zones if z.get("is_flip", False) or z.get("is_sr_flip", False)]
     active_sr_flip = sr_flips[0] if sr_flips else None
 
-    # Psychological Round Numbers (e.g. 50, 100, 500, 1000 step)
+    # Psychological Round Numbers
     round_step = 10.0 if curr_p < 200 else (50.0 if curr_p < 1000 else (100.0 if curr_p < 5000 else 500.0))
     nearest_round = round(curr_p / round_step) * round_step
     dist_to_round_pct = round(abs(curr_p - nearest_round) / curr_p * 100, 2)
@@ -160,13 +165,11 @@ def evaluate_master_confluence(
         last_sl = swing_lows[-1]["price"]
         prev_sl = swing_lows[-2]["price"]
 
-        # Bullish BOS: Price broke above previous swing high in uptrend
         if curr_p > last_sh and structure["is_higher_highs"]:
             bos_status = f"BULLISH BOS (Continuation above {c_sym}{last_sh:.2f})"
         elif curr_p < last_sl and structure["is_lower_lows"]:
             bos_status = f"BEARISH BOS (Continuation below {c_sym}{last_sl:.2f})"
 
-        # CHoCH (Change of Character): Uptrend breaking below most recent Higher Low (or vice-versa)
         if structure["is_higher_highs"] and curr_p < last_sl:
             choch_status = f"BEARISH CHoCH ALERT (Trend Shift: Broke HL at {c_sym}{last_sl:.2f})"
         elif structure["is_lower_lows"] and curr_p > last_sh:
@@ -238,48 +241,65 @@ def evaluate_master_confluence(
         trap_detail = latest_sweep["description"]
 
     # -------------------------------------------------------------------------
-    # F. MULTI-TIMEFRAME TRIAD (HTF + MTF + LTF)
+    # F. MULTI-TIMEFRAME MACRO FOUNDATION (DAILY ANCHOR)
     # -------------------------------------------------------------------------
-    # HTF Macro Direction (Daily 200 EMA + 50 EMA)
+    m_df = df_macro if (df_macro is not None and len(df_macro) >= 15) else df
+    if "EMA_20" not in m_df.columns or "EMA_200" not in m_df.columns:
+        m_df = add_all_indicators(m_df)
+
+    m_curr_p = float(m_df["Close"].iloc[-1])
+    m_ema20 = float(m_df["EMA_20"].iloc[-1]) if "EMA_20" in m_df else m_curr_p
+    m_ema50 = float(m_df["EMA_50"].iloc[-1]) if "EMA_50" in m_df else m_curr_p
+    m_ema200 = float(m_df["EMA_200"].iloc[-1]) if "EMA_200" in m_df else m_curr_p
+    m_sh, m_sl = detect_swing_points(m_df, window=4)
+    m_struct = analyze_market_structure(m_df, m_sh, m_sl)
+
+    macro_bullish = (m_curr_p >= m_ema200 and m_ema50 >= m_ema200) or (m_curr_p >= m_ema50 and m_struct["is_higher_highs"])
+    macro_bearish = (m_curr_p <= m_ema200 and m_ema50 <= m_ema200) or (m_curr_p <= m_ema50 and m_struct["is_lower_lows"])
+
+    # HTF Macro Direction
     htf_bullish = curr_p >= ema200 and ema50 >= ema200
     htf_bearish = curr_p <= ema200 and ema50 <= ema200
-    htf_status = "BULLISH MACRO (Above 200 EMA)" if htf_bullish else ("BEARISH MACRO (Below 200 EMA)" if htf_bearish else "NEUTRAL / MIXED")
+    htf_status = "BULLISH MACRO (Above 200 EMA)" if (macro_bullish or htf_bullish) else ("BEARISH MACRO (Below 200 EMA)" if (macro_bearish or htf_bearish) else "NEUTRAL / MIXED")
 
-    # MTF Structural Phase (Dow Theory & 20 EMA)
+    # MTF Structural Phase
     mtf_bullish = curr_p >= ema20 and (structure["is_higher_highs"] or "MARKUP" in structure["regime"])
     mtf_bearish = curr_p <= ema20 and (structure["is_lower_lows"] or "MARKDOWN" in structure["regime"])
     mtf_status = "BULLISH (Markup Phase)" if mtf_bullish else ("BEARISH (Markdown Phase)" if mtf_bearish else "SIDEWAYS / CHOP")
 
-    # LTF Trigger (Candle Anatomy, VWAP, Breakout state)
+    # LTF Trigger
     ltf_bullish = curr_p >= vwap and (is_hammer or is_engulfing_bull or breakout_radar.get("stage") == "CONFIRMED")
     ltf_bearish = curr_p <= vwap and (is_shooting_star or is_engulfing_bear or trap_active)
     ltf_status = "BUY TRIGGER FIRED" if ltf_bullish else ("SELL / COVER TRIGGER FIRED" if ltf_bearish else "WAITING FOR TRIGGER")
 
-    # Overall Setup Direction Bias
-    overall_long = (htf_bullish and mtf_bullish) or (mtf_bullish and ltf_bullish) or (curr_p >= vwap and curr_p >= ema50)
+    # Overall Setup Direction Bias (Governed primarily by Macro Asset Foundation)
+    if df_macro is not None and len(df_macro) >= 15:
+        overall_long = macro_bullish if (macro_bullish != macro_bearish) else ((htf_bullish and mtf_bullish) or (curr_p >= vwap))
+    else:
+        overall_long = (htf_bullish and mtf_bullish) or (mtf_bullish and ltf_bullish) or (curr_p >= vwap and curr_p >= ema50)
 
     # =========================================================================
     # THE 4-POINT HIGH-PROBABILITY CONFLUENCE CHECKLIST (MASTERCLASS 95% ENGINE)
     # =========================================================================
     checklist = []
 
-    # Point 1: Trend Alignment
+    # Point 1: Trend Alignment (Anchored to true macro reality)
     if overall_long:
-        p1_passed = curr_p >= ema200 or (curr_p >= ema50 and ema20 >= ema50)
-        p1_detail = f"Bullish Trend Alignment: Price ({c_sym}{curr_p:.2f}) holding above EMA ribbon (20: {c_sym}{ema20:.2f}, 200: {c_sym}{ema200:.2f})." if p1_passed else f"Counter-trend / Choppy: Price trading below 200 EMA ({c_sym}{ema200:.2f})."
+        p1_passed = (m_curr_p >= m_ema200) or (curr_p >= ema200) or (m_curr_p >= m_ema50 and m_ema20 >= m_ema50)
+        p1_detail = f"Macro Trend Alignment: Stock ({c_sym}{curr_p:.2f}) holding above Daily 200 EMA ({c_sym}{m_ema200:.2f}) and 50 EMA ({c_sym}{m_ema50:.2f})." if p1_passed else f"Counter-trend / Choppy: Stock trading below Daily 200 EMA ({c_sym}{m_ema200:.2f})."
     else:
-        p1_passed = curr_p <= ema200 or (curr_p <= ema50 and ema20 <= ema50)
-        p1_detail = f"Bearish Trend Alignment: Price ({c_sym}{curr_p:.2f}) trading below key EMA ribbon (20: {c_sym}{ema20:.2f}, 200: {c_sym}{ema200:.2f})." if p1_passed else f"Counter-trend rally: Price above 200 EMA ({c_sym}{ema200:.2f})."
+        p1_passed = (m_curr_p <= m_ema200) or (curr_p <= ema200) or (m_curr_p <= m_ema50 and m_ema20 <= m_ema50)
+        p1_detail = f"Bearish Trend Alignment: Stock ({c_sym}{curr_p:.2f}) trading below Daily 200 EMA ({c_sym}{m_ema200:.2f})." if p1_passed else f"Counter-trend rally: Stock above Daily 200 EMA ({c_sym}{m_ema200:.2f})."
 
     checklist.append({
         "id": "trend_alignment",
         "title": "1. Macro Trend Alignment",
-        "subtitle": "200 EMA & Dow Market Structure",
+        "subtitle": "Daily 200 EMA & Dow Market Structure",
         "passed": bool(p1_passed),
         "detail": p1_detail
     })
 
-    # Point 2: Value Area / Key Zone
+    # Point 2: Value Area / Key Zone (includes parallel channel support/resistance)
     dist_to_demand = min([abs(curr_p - z["mid_price"]) / curr_p * 100 for z in demand_zones]) if demand_zones else 999.0
     dist_to_supply = min([abs(curr_p - z["mid_price"]) / curr_p * 100 for z in supply_zones]) if supply_zones else 999.0
     dist_to_vwap = abs(curr_p - vwap) / curr_p * 100
@@ -288,21 +308,29 @@ def evaluate_master_confluence(
     in_fib_gp = fib_data.get("in_golden_pocket", False)
     in_fib_ote = fib_data.get("in_ote", False)
 
+    ch_active = parallel_channel.get("active", False)
+    in_lower_channel = ch_active and (parallel_channel.get("position_pct", 50) <= 25) and ("ASCENDING" in parallel_channel.get("channel_type", ""))
+    in_upper_channel = ch_active and (parallel_channel.get("position_pct", 50) >= 75) and ("DESCENDING" in parallel_channel.get("channel_type", ""))
+
     if overall_long:
-        p2_passed = dist_to_demand <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote
-        demand_str = f"{c_sym}{nearest_demand['low_price']:.2f} - {c_sym}{nearest_demand['high_price']:.2f}" if nearest_demand else "Macro Base"
+        p2_passed = dist_to_demand <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote or in_lower_channel
+        demand_str = f"{c_sym}{nearest_demand['min_price']:.2f} - {c_sym}{nearest_demand['max_price']:.2f}" if nearest_demand else "Macro Base"
         extra_zone = " • At Fib Golden Pocket (0.618-0.786)" if in_fib_gp else (" • Inside Bullish FVG Imbalance" if in_fvg else "")
+        if in_lower_channel:
+            extra_zone += f" • Lower Support of {parallel_channel['channel_type']} ({c_sym}{parallel_channel['lower_line']['end_price']:.2f})"
         p2_detail = f"At High-Value Zone: Price within {min(dist_to_demand, dist_to_vwap):.2f}% of Institutional Demand Zone ({demand_str}) / VWAP ({c_sym}{vwap:.2f}){extra_zone}." if p2_passed else f"Chasing in no-man's land: Price is {dist_to_demand:.2f}% away from nearest Demand Zone."
     else:
-        p2_passed = dist_to_supply <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote
-        supply_str = f"{c_sym}{nearest_supply['low_price']:.2f} - {c_sym}{nearest_supply['high_price']:.2f}" if nearest_supply else "Overhead Resistance"
+        p2_passed = dist_to_supply <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote or in_upper_channel
+        supply_str = f"{c_sym}{nearest_supply['min_price']:.2f} - {c_sym}{nearest_supply['max_price']:.2f}" if nearest_supply else "Overhead Resistance"
         extra_zone = " • At Fib Golden Pocket (0.618-0.786)" if in_fib_gp else (" • Inside Bearish FVG Imbalance" if in_fvg else "")
+        if in_upper_channel:
+            extra_zone += f" • Upper Resistance of {parallel_channel['channel_type']} ({c_sym}{parallel_channel['upper_line']['end_price']:.2f})"
         p2_detail = f"At High-Value Zone: Price within {min(dist_to_supply, dist_to_vwap):.2f}% of Overhead Supply Zone ({supply_str}) / VWAP ({c_sym}{vwap:.2f}){extra_zone}." if p2_passed else f"Stretched from supply: Price is {dist_to_supply:.2f}% away from nearest Supply Zone."
 
     checklist.append({
         "id": "value_zone",
         "title": "2. Value Area / Institutional Zone",
-        "subtitle": "Demand/Supply Zones, FVG & Fib Golden Pocket",
+        "subtitle": "Demand/Supply Zones, Channels, FVG & Fib Pocket",
         "passed": bool(p2_passed),
         "detail": p2_detail
     })
@@ -311,20 +339,22 @@ def evaluate_master_confluence(
     has_cvd_bull_absorption = "BULLISH CVD ABSORPTION" in cvd_data.get("divergence", "")
     has_cvd_bear_exhaustion = "BEARISH CVD EXHAUSTION" in cvd_data.get("divergence", "")
     has_ttm_fire = ttm_data.get("squeeze_fired", False)
+    ch_bounce_long = ch_active and in_lower_channel and (is_hammer or is_engulfing_bull or c_close > c_open)
+    ch_bounce_short = ch_active and in_upper_channel and (is_shooting_star or is_engulfing_bear or c_close < c_open)
 
     if overall_long:
-        p3_passed = is_hammer or is_engulfing_bull or rsi_div.get("bullish_divergence") or trap_type == "BULLISH LIQUIDITY SWEEP" or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bull_absorption or has_ttm_fire
+        p3_passed = is_hammer or is_engulfing_bull or rsi_div.get("bullish_divergence") or trap_type == "BULLISH LIQUIDITY SWEEP" or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bull_absorption or has_ttm_fire or ch_bounce_long
         extra_trig = " • [CVD Bullish Absorption Confirmed]" if has_cvd_bull_absorption else (" • [TTM Squeeze Fired]" if has_ttm_fire else "")
         p3_detail = f"Confirmed Price Action Trigger: {candle_name} printed with {lower_wick_pct:.0f}% absorption wick. {vsa_verdict}{extra_trig}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive reversal candle or sweep yet. Current bar: {candle_name}."
     else:
-        p3_passed = is_shooting_star or is_engulfing_bear or rsi_div.get("bearish_divergence") or trap_active or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bear_exhaustion or has_ttm_fire
+        p3_passed = is_shooting_star or is_engulfing_bear or rsi_div.get("bearish_divergence") or trap_active or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bear_exhaustion or has_ttm_fire or ch_bounce_short
         extra_trig = " • [CVD Bearish Exhaustion Confirmed]" if has_cvd_bear_exhaustion else (" • [TTM Squeeze Fired]" if has_ttm_fire else "")
         p3_detail = f"Confirmed Price Action Trigger: {candle_name} with {upper_wick_pct:.0f}% supply rejection. {trap_type if trap_active else vsa_verdict}{extra_trig}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive supply rejection yet. Current bar: {candle_name}."
 
     checklist.append({
         "id": "confirmation_trigger",
         "title": "3. Price Action & Volume Trigger",
-        "subtitle": "Candle Anatomy, VSA, CVD & Squeeze",
+        "subtitle": "Candle Anatomy, VSA, CVD, Channels & Squeeze",
         "passed": bool(p3_passed),
         "detail": p3_detail
     })
@@ -374,34 +404,105 @@ def evaluate_master_confluence(
     })
 
     # -------------------------------------------------------------------------
-    # CONFLUENCE & ACCURACY SCORING
+    # CONFLUENCE & ACCURACY SCORING (HARMONIZED ASSET CONSENSUS)
     # -------------------------------------------------------------------------
     passed_count = sum(1 for c in checklist if c["passed"])
 
     if passed_count == 4:
-        accuracy_score = 95
-        grade = "GRADE A+ (INSTITUTIONAL EDGE)"
-        badge_color = "bull"
-        action = "BUY / LONG" if overall_long else "SELL / SHORT"
-        verdict = f"Maximum Confluence Achieved (95% Accuracy Probability). All 4 masterclass pillars verified. Enter at {exec_plan['recommended_entry_type']} ({c_sym}{planned_entry:.2f}) with Anti-Hunt SL at {c_sym}{planned_sl:.2f}."
-    elif passed_count == 3:
-        accuracy_score = 85
-        grade = "GRADE A (HIGH PROBABILITY)"
-        badge_color = "bull" if overall_long else "bear"
-        action = "BUY / LONG" if overall_long else "SELL / SHORT"
-        verdict = f"High Confluence (85% Probability). 3 of 4 criteria verified. High quality trade setup."
+        ltf_score = 95
     elif passed_count == 2:
-        accuracy_score = 60
-        grade = "GRADE B (MARGINAL - SKIP)"
-        badge_color = "amber"
-        action = "WAIT / PRESERVE CAPITAL"
-        verdict = f"Marginal Setup (60% Probability). 2 pillars missing. Golden Rule: Pro traders skip setups with less than 3 confluences."
+        ltf_score = 60
+    elif passed_count == 3:
+        ltf_score = 85
     else:
-        accuracy_score = 35
-        grade = "NO STATISTICAL EDGE (CASH IS A POSITION)"
-        badge_color = "neutral"
-        action = "WAIT / PRESERVE CAPITAL"
-        verdict = "Insufficient Confluence. Market is consolidating or out of zone. Cash is a position; preserve capital until high-probability alignment occurs."
+        ltf_score = 35
+
+    # If df_macro is available and analyzing an intraday timeframe
+    if df_macro is not None and len(df_macro) >= 15 and timeframe in ["1m", "3m", "5m", "15m", "1h", "4h"]:
+        macro_score = 92 if (macro_bullish and "MARKUP" in m_struct["regime"]) else (
+            85 if macro_bullish else (
+                92 if (macro_bearish and "MARKDOWN" in m_struct["regime"]) else (
+                    85 if macro_bearish else 65
+                )
+            )
+        )
+        # Harmonized Master Asset Confluence: 60% Macro Anchor + 40% LTF Execution Trigger
+        accuracy_score = int(round(0.60 * macro_score + 0.40 * ltf_score))
+        if accuracy_score >= 88:
+            passed_count = 4
+            grade = "GRADE A+ (INSTITUTIONAL EDGE)"
+            badge_color = "bull" if overall_long else "bear"
+            action = "BUY / LONG" if overall_long else "SELL / SHORT"
+            verdict = f"Maximum Harmonized Confluence ({accuracy_score}% Institutional Edge). 1D Macro {m_struct['regime']} aligned with {timeframe} execution trigger ({exec_plan['recommended_entry_type']} at {c_sym}{planned_entry:.2f})."
+        elif accuracy_score >= 75:
+            passed_count = 3
+            grade = "GRADE A (HIGH PROBABILITY)"
+            badge_color = "bull" if overall_long else "bear"
+            action = "BUY / LONG" if overall_long else "SELL / SHORT"
+            verdict = f"High Harmonized Confluence ({accuracy_score}% Probability). Strong Macro foundation with {timeframe} pullback in progress."
+        elif accuracy_score >= 50:
+            passed_count = 2
+            grade = "GRADE B (MARGINAL - SKIP)"
+            badge_color = "amber"
+            action = "WAIT / PRESERVE CAPITAL"
+            verdict = f"Marginal Setup ({accuracy_score}% Probability). Macro and {timeframe} trigger in mixed divergence. Golden Rule: Pro traders wait for full alignment."
+        else:
+            passed_count = 1
+            grade = "NO STATISTICAL EDGE (CASH IS A POSITION)"
+            badge_color = "neutral"
+            action = "WAIT / PRESERVE CAPITAL"
+            verdict = "Insufficient Confluence. Market is consolidating or out of zone. Cash is a position; preserve capital until high-probability alignment occurs."
+    else:
+        accuracy_score = ltf_score
+        if passed_count == 4:
+            grade = "GRADE A+ (INSTITUTIONAL EDGE)"
+            badge_color = "bull" if overall_long else "bear"
+            action = "BUY / LONG" if overall_long else "SELL / SHORT"
+            verdict = f"Maximum Confluence Achieved (95% Accuracy Probability). All 4 masterclass pillars verified. Enter at {exec_plan['recommended_entry_type']} ({c_sym}{planned_entry:.2f}) with Anti-Hunt SL at {c_sym}{planned_sl:.2f}."
+        elif passed_count == 3:
+            grade = "GRADE A (HIGH PROBABILITY)"
+            badge_color = "bull" if overall_long else "bear"
+            action = "BUY / LONG" if overall_long else "SELL / SHORT"
+            verdict = f"High Confluence (85% Probability). 3 of 4 criteria verified. High quality trade setup."
+        elif passed_count == 2:
+            grade = "GRADE B (MARGINAL - SKIP)"
+            badge_color = "amber"
+            action = "WAIT / PRESERVE CAPITAL"
+            verdict = f"Marginal Setup (60% Probability). 2 pillars missing. Golden Rule: Pro traders skip setups with less than 3 confluences."
+        else:
+            grade = "NO STATISTICAL EDGE (CASH IS A POSITION)"
+            badge_color = "neutral"
+            action = "WAIT / PRESERVE CAPITAL"
+            verdict = "Insufficient Confluence. Market is consolidating or out of zone. Cash is a position; preserve capital until high-probability alignment occurs."
+
+    # Multi-Timeframe Alignment
+    mtf_alignment = {
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "master_asset_score": accuracy_score,
+        "macro_score": macro_score if 'macro_score' in locals() else accuracy_score,
+        "ltf_score": ltf_score,
+        "asset_foundation": "BULLISH INSTITUTIONAL REGIME" if macro_bullish else ("BEARISH INSTITUTIONAL REGIME" if macro_bearish else "NEUTRAL RANGE ACCUMULATION"),
+        "daily_macro": {
+            "regime": m_struct["regime"],
+            "bias": m_struct["bias"],
+            "above_200_ema": bool(m_curr_p >= m_ema200),
+            "status_badge": "🟢 1D BULLISH" if macro_bullish else ("🔴 1D BEARISH" if macro_bearish else "🟡 1D NEUTRAL")
+        },
+        "hourly_structure": {
+            "regime": structure["regime"],
+            "bias": structure["bias"],
+            "status_badge": "🟢 1H MARKUP" if "BULLISH" in structure["bias"] else ("🔴 1H MARKDOWN" if "BEARISH" in structure["bias"] else "🟡 1H CHOP")
+        },
+        "ltf_execution": {
+            "timeframe": timeframe,
+            "status": ltf_status,
+            "candle": candle_name,
+            "vsa": vsa_code,
+            "status_badge": "🟢 TRIGGER FIRED" if ltf_bullish else ("🔴 TRIGGER FIRED" if ltf_bearish else "⏳ PULLBACK / READY")
+        },
+        "harmonized_summary": f"{accuracy_score}% Harmonized Institutional Confluence across Timeframes"
+    }
 
     # Time-of-Day, Order Flow & Breaking News Warnings
     news_intel = analyze_symbol_news(
@@ -431,6 +532,8 @@ def evaluate_master_confluence(
         "action": action,
         "verdict": verdict,
         "checklist": checklist,
+        "parallel_channel": parallel_channel,
+        "mtf_alignment": mtf_alignment,
         "market_structure": {
             "phase": structure["regime"],
             "bias": structure["bias"],
@@ -498,3 +601,6 @@ def evaluate_master_confluence(
             "news_intelligence": news_intel
         }
     }
+
+
+

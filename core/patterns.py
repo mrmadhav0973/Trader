@@ -176,13 +176,151 @@ def analyze_market_structure(
     }
 
 
+def calculate_algorithmic_parallel_channels(
+    df: pd.DataFrame,
+    swing_highs: list[dict],
+    swing_lows: list[dict]
+) -> dict[str, Any]:
+    """
+    Construct high-precision parallel channels (Upper Resistance, Lower Support, 50% Median Line).
+    Determines slope, channel orientation (Ascending, Descending, Horizontal Corridor),
+    and exact price position percentage within the corridor.
+    """
+    if df is None or len(df) < 15 or len(swing_highs) < 2 or len(swing_lows) < 2:
+        return {"active": False}
+
+    curr_p = float(df["Close"].iloc[-1])
+    n = len(df)
+    times = df.index
+
+    # Use recent swing points (last 4 highs and last 4 lows)
+    recent_highs = sorted(swing_highs[-4:], key=lambda x: x["bar_index"])
+    recent_lows = sorted(swing_lows[-4:], key=lambda x: x["bar_index"])
+
+    if len(recent_highs) < 2 or len(recent_lows) < 2:
+        return {"active": False}
+
+    l1, l2 = recent_lows[-2], recent_lows[-1]
+    h1, h2 = recent_highs[-2], recent_highs[-1]
+
+    dx_l = l2["bar_index"] - l1["bar_index"]
+    slope_l = (l2["price"] - l1["price"]) / dx_l if dx_l != 0 else 0.0
+
+    dx_h = h2["bar_index"] - h1["bar_index"]
+    slope_h = (h2["price"] - h1["price"]) / dx_h if dx_h != 0 else 0.0
+
+    # Determine dominant slope and channel orientation
+    if slope_l > 0 and slope_h >= 0:
+        dominant_slope = slope_l
+        channel_type = "ASCENDING CHANNEL"
+        orientation = "bullish"
+    elif slope_h < 0 and slope_l <= 0:
+        dominant_slope = slope_h
+        channel_type = "DESCENDING CHANNEL"
+        orientation = "bearish"
+    else:
+        dominant_slope = (slope_l + slope_h) / 2.0
+        if abs(dominant_slope) < (curr_p * 0.0004):
+            channel_type = "HORIZONTAL CORRIDOR"
+            orientation = "neutral"
+            dominant_slope = 0.0
+        elif dominant_slope > 0:
+            channel_type = "ASCENDING CHANNEL"
+            orientation = "bullish"
+        else:
+            channel_type = "DESCENDING CHANNEL"
+            orientation = "bearish"
+
+    # Start bar is the earliest anchor of the two swing sets
+    start_bar = max(0, min(recent_lows[-2]["bar_index"], recent_highs[-2]["bar_index"]))
+    end_bar = n - 1
+
+    # Find upper intercept (maximum residual among recent highs)
+    c_upper = max(h["price"] - (dominant_slope * h["bar_index"]) for h in recent_highs)
+    # Find lower intercept (minimum residual among recent lows)
+    c_lower = min(l["price"] - (dominant_slope * l["bar_index"]) for l in recent_lows)
+
+    # Ensure minimum channel height (at least 1.5% of price)
+    if (c_upper - c_lower) < (curr_p * 0.015):
+        diff = (curr_p * 0.015 - (c_upper - c_lower)) / 2.0
+        c_upper += diff
+        c_lower -= diff
+
+    c_median = (c_upper + c_lower) / 2.0
+
+    # Project coordinates at start and end
+    y_up_start = dominant_slope * start_bar + c_upper
+    y_up_end = dominant_slope * end_bar + c_upper
+
+    y_low_start = dominant_slope * start_bar + c_lower
+    y_low_end = dominant_slope * end_bar + c_lower
+
+    y_med_start = dominant_slope * start_bar + c_median
+    y_med_end = dominant_slope * end_bar + c_median
+
+    # Convert timestamps to unix seconds for charting
+    start_ts = int(times[start_bar].timestamp()) if hasattr(times[start_bar], "timestamp") else int(start_bar)
+    end_ts = int(times[end_bar].timestamp()) if hasattr(times[end_bar], "timestamp") else int(end_bar)
+
+    # Current price position relative to channel boundaries
+    curr_upper = y_up_end
+    curr_lower = y_low_end
+    ch_height = max(0.01, curr_upper - curr_lower)
+    pos_pct = round(((curr_p - curr_lower) / ch_height) * 100.0, 1)
+    slope_pct = round(((y_med_end - y_med_start) / max(0.01, y_med_start)) * 100.0, 2)
+
+    # Status classification
+    if pos_pct <= 18:
+        status = "TESTING LOWER SUPPORT (Demand Boundary - High Prob Bounce)"
+    elif pos_pct >= 82:
+        status = "TESTING UPPER RESISTANCE (Overhead Boundary - Supply Reversal)"
+    elif 40 <= pos_pct <= 60:
+        status = "AT 50% MEDIAN EQUILIBRIUM"
+    elif pos_pct > 102:
+        status = "BULLISH EXPANSION BREAKOUT"
+    elif pos_pct < -2:
+        status = "BEARISH EXPANSION BREAKDOWN"
+    else:
+        status = "INSIDE CHANNEL CORRIDOR"
+
+    return {
+        "active": True,
+        "channel_type": channel_type,
+        "orientation": orientation,
+        "status": status,
+        "slope": round(float(dominant_slope), 4),
+        "slope_pct": slope_pct,
+        "position_pct": pos_pct,
+        "channel_height": round(float(ch_height), 2),
+        "channel_height_pct": round(float((ch_height / curr_p) * 100.0), 2),
+        "upper_line": {
+            "start_time": start_ts,
+            "start_price": round(float(y_up_start), 2),
+            "end_time": end_ts,
+            "end_price": round(float(y_up_end), 2)
+        },
+        "lower_line": {
+            "start_time": start_ts,
+            "start_price": round(float(y_low_start), 2),
+            "end_time": end_ts,
+            "end_price": round(float(y_low_end), 2)
+        },
+        "median_line": {
+            "start_time": start_ts,
+            "start_price": round(float(y_med_start), 2),
+            "end_time": end_ts,
+            "end_price": round(float(y_med_end), 2)
+        }
+    }
+
+
 def calculate_algorithmic_trendlines(
     df: pd.DataFrame,
     swing_highs: list[dict],
     swing_lows: list[dict]
 ) -> dict[str, Any]:
-    """Fit robust trendlines across recent swing points."""
-    result = {"support_line": None, "resistance_line": None}
+    """Fit robust trendlines across recent swing points and calculate parallel channels."""
+    result = {"support_line": None, "resistance_line": None, "parallel_channel": None}
 
     if len(swing_lows) >= 2:
         recent_lows = sorted(swing_lows[-4:], key=lambda x: x["bar_index"])
@@ -228,6 +366,7 @@ def calculate_algorithmic_trendlines(
                     "is_descending": slope < 0
                 }
 
+    result["parallel_channel"] = calculate_algorithmic_parallel_channels(df, swing_highs, swing_lows)
     return result
 
 
@@ -236,20 +375,14 @@ def cluster_support_resistance_zones(
     swing_highs: list[dict] = None,
     swing_lows: list[dict] = None,
     threshold_pct: float = 0.015,
-    max_zones: int = 12
+    max_zones: int = 6
 ) -> list[dict[str, Any]]:
     """
-    Cluster price action into human-grade Support & Resistance (Demand & Supply) zones,
-    mimicking expert technical analysts on TradingView.
+    Cluster price action into sleek, institutional Support & Resistance (Demand & Supply)
+    "thick line zones" rather than oversized screen-filling rectangles.
 
-    Generates multi-tiered shaded zones across the chart:
-    - Immediate Demand & Supply (closest reaction levels)
-    - Major Institutional Base & Distribution zones
-    - Polarity / S-R flip zones
-    - Structural swing clusters
-
-    Each zone includes min_price, max_price, mid_price, touches, strength rating,
-    and human-readable TradingView labels.
+    Each zone is centered strictly around its touch-weighted mid_price, with a compact
+    ribbon height (0.15% to 0.25% price band) and clear touch strength.
     """
     if df is None or len(df) < 5:
         return []
@@ -260,7 +393,7 @@ def cluster_support_resistance_zones(
     closes = df["Close"].values
     n = len(df)
 
-    # 1. Calibrate zone height and clustering threshold using ATR
+    # 1. Calibrate compact thick-line ribbon thickness using ATR
     tr = np.maximum(
         highs[1:] - lows[1:],
         np.maximum(abs(highs[1:] - closes[:-1]), abs(lows[1:] - closes[:-1]))
@@ -269,9 +402,9 @@ def cluster_support_resistance_zones(
     if atr <= 0 or np.isnan(atr):
         atr = float(current_price * 0.015)
 
-    # Realistic human-drawn zone height and clustering tolerances
-    zone_band_height = max(current_price * 0.004, atr * 0.35)
-    cluster_threshold = max(current_price * 0.012, atr * 0.65)
+    # Sleek thick-line zone half-height: compact 0.12% - 0.25% band
+    zone_half_height = max(current_price * 0.0012, atr * 0.06)
+    cluster_threshold = max(current_price * 0.008, atr * 0.40)
 
     # 2. Extract multi-scale swing fractals (windows 2, 4, 8)
     all_points = []
@@ -311,7 +444,7 @@ def cluster_support_resistance_zones(
     if curr_cluster:
         clusters.append(curr_cluster)
 
-    # 4. Formulate zone boundaries, touches, and strength
+    # 4. Formulate sleek thick line zone boundaries centered at mid_price
     raw_zones = []
     for c in clusters:
         prices = [p["price"] for p in c]
@@ -320,14 +453,9 @@ def cluster_support_resistance_zones(
         is_flip = len(types) > 1
 
         mid_p = float(np.average(prices, weights=[p["weight"] for p in c]))
-        min_p = float(min(prices) - (zone_band_height * 0.25))
-        max_p = float(max(prices) + (zone_band_height * 0.25))
-
-        # Ensure minimum zone thickness
-        if (max_p - min_p) < zone_band_height:
-            diff = (zone_band_height - (max_p - min_p)) / 2.0
-            min_p -= diff
-            max_p += diff
+        # Compact thick-line boundary strictly centered around mid_p
+        min_p = float(mid_p - zone_half_height)
+        max_p = float(mid_p + zone_half_height)
 
         touches = len(c)
         if touches >= 4 or weights >= 6:
@@ -337,7 +465,7 @@ def cluster_support_resistance_zones(
         else:
             strength = "LOCAL"
 
-        is_support = max_p <= current_price * 1.008
+        is_support = max_p <= current_price * 1.006
         z_type = "support" if is_support else "resistance"
 
         raw_zones.append({
@@ -359,18 +487,19 @@ def cluster_support_resistance_zones(
     demands.sort(key=lambda z: z["mid_price"], reverse=True)
     supplies.sort(key=lambda z: z["mid_price"])
 
-    # 6. Merge overlapping zones within each group to produce clean rectangular bands
-    def merge_clean(zones_list, max_count=6):
+    # 6. Merge overlapping zones within each group to preserve sleek thick-line ribbons
+    def merge_clean(zones_list, max_count=3):
         clean = []
         for z in zones_list:
             overlap = False
             for existing in clean:
-                if not (z["max_price"] < existing["min_price"] or z["min_price"] > existing["max_price"]):
+                if abs(z["mid_price"] - existing["mid_price"]) <= (zone_half_height * 2.8):
                     overlap = True
                     existing["touches"] += z["touches"]
-                    existing["min_price"] = min(existing["min_price"], z["min_price"])
-                    existing["max_price"] = max(existing["max_price"], z["max_price"])
-                    existing["mid_price"] = round((existing["min_price"] + existing["max_price"]) / 2, 2)
+                    new_mid = round((existing["mid_price"] + z["mid_price"]) / 2.0, 2)
+                    existing["mid_price"] = new_mid
+                    existing["min_price"] = round(new_mid - zone_half_height, 2)
+                    existing["max_price"] = round(new_mid + zone_half_height, 2)
                     if z["strength"] == "MAJOR":
                         existing["strength"] = "MAJOR"
                     if z.get("is_flip"):
@@ -382,10 +511,10 @@ def cluster_support_resistance_zones(
                 break
         return clean
 
-    clean_demands = merge_clean(demands, max_count=max_zones // 2)
-    clean_supplies = merge_clean(supplies, max_count=max_zones // 2)
+    clean_demands = merge_clean(demands, max_count=3)
+    clean_supplies = merge_clean(supplies, max_count=3)
 
-    # 7. Assign human-like TradingView labels
+    # 7. Assign sleek TradingView labels
     for i, z in enumerate(clean_demands):
         is_imm = (i == 0)
         z["is_immediate"] = is_imm
@@ -418,3 +547,4 @@ def cluster_support_resistance_zones(
 
 # Alias for explicit caller naming
 build_maximum_sr_zones = cluster_support_resistance_zones
+

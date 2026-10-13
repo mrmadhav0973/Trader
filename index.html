@@ -2359,7 +2359,8 @@
 
         <!-- Floating Controls Toolbar -->
         <div class="tv-floating-toolbar">
-          <button class="tv-btn active" id="btnToggleZones" onclick="toggleZones()" title="Toggle S/R Demand & Supply Zones">🛡️ Zones: ON</button>
+          <button class="tv-btn active" id="btnToggleZones" onclick="toggleZones()" title="Toggle S/R Demand & Supply Thick Line Zones">🛡️ Zones: ON</button>
+          <button class="tv-btn active" id="btnToggleChannel" onclick="toggleChannel()" title="Toggle Parallel Trendline Channels & Corridors">📐 Channel: ON</button>
           <button class="tv-btn active" id="btnToggleFvg" onclick="toggleFvg()" title="Toggle Fair Value Gaps (FVG) & 50% CE Imbalance">🧬 FVG: ON</button>
           <button class="tv-btn active" id="btnToggleFib" onclick="toggleFib()" title="Toggle Fibonacci Golden Pocket & OTE (0.618-0.786)">🎯 Fib OTE: ON</button>
           <button class="tv-btn active" id="btnToggleEmas" onclick="toggleEmas()" title="Toggle EMA 20, 50, 200 Ribbon">📈 EMAs: ON</button>
@@ -2510,6 +2511,7 @@
     let activeConfTab = 'tabStructure';
     let showChartPriceLines = true;
     let showZones = true;
+    let showChannel = true;
     let showFvg = true;
     let showFib = true;
     let showEmas = true;
@@ -2609,6 +2611,17 @@
         btn.textContent = `🛡️ Zones: ${showZones ? 'ON' : 'OFF'}`;
         btn.classList.toggle('active', showZones);
         btn.classList.toggle('off', !showZones);
+      }
+      renderZonesOverlay();
+    }
+
+    function toggleChannel() {
+      showChannel = !showChannel;
+      const btn = document.getElementById('btnToggleChannel');
+      if (btn) {
+        btn.textContent = `📐 Channel: ${showChannel ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showChannel);
+        btn.classList.toggle('off', !showChannel);
       }
       renderZonesOverlay();
     }
@@ -2713,60 +2726,70 @@
       const chartPlotWidth = Math.max(0, width - 68);
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
 
-      // 1. Support & Resistance Zones
-      const zones = (currentData && currentData.sr_zones && currentData.sr_zones.length > 0)
+      // 1. Sleek Institutional Support & Resistance Thick Line Zones
+      const rawZones = (currentData && currentData.sr_zones && currentData.sr_zones.length > 0)
         ? currentData.sr_zones
         : (currentConfluence && currentConfluence.all_sr_zones ? currentConfluence.all_sr_zones : []);
 
-      if (showZones && zones && zones.length > 0) {
-        zones.forEach(z => {
-          if (!z || isNaN(z.min_price) || isNaN(z.max_price)) return;
+      if (showZones && rawZones && rawZones.length > 0) {
+        // Render top 2 Demands and top 2 Supplies (+ 1 flip) closest to current price for ultra-clean chart
+        const cPrice = (currentData && currentData.current_price) ? currentData.current_price : 0;
+        const dZones = rawZones.filter(z => z.type === 'support' || z.type === 'DEMAND')
+                               .sort((a,b) => Math.abs(a.mid_price - cPrice) - Math.abs(b.mid_price - cPrice))
+                               .slice(0, 2);
+        const sZones = rawZones.filter(z => z.type === 'resistance' || z.type === 'SUPPLY')
+                               .sort((a,b) => Math.abs(a.mid_price - cPrice) - Math.abs(b.mid_price - cPrice))
+                               .slice(0, 2);
+        const flipZones = rawZones.filter(z => (z.is_flip || z.is_sr_flip) && !dZones.includes(z) && !sZones.includes(z)).slice(0, 1);
+        const zonesToRender = [...dZones, ...sZones, ...flipZones];
 
-          let yMin = tvCandleSeries.priceToCoordinate(z.min_price);
-          let yMax = tvCandleSeries.priceToCoordinate(z.max_price);
+        zonesToRender.forEach(z => {
+          if (!z || isNaN(z.mid_price)) return;
 
-          if (yMin === null && yMax === null) {
-            const yMid = tvCandleSeries.priceToCoordinate(z.mid_price);
-            if (yMid !== null) {
-              yMin = yMid + 8;
-              yMax = yMid - 8;
-            } else {
-              return;
-            }
+          let yMid = tvCandleSeries.priceToCoordinate(z.mid_price);
+          if (yMid === null) {
+            let y1 = !isNaN(z.min_price) ? tvCandleSeries.priceToCoordinate(z.min_price) : null;
+            let y2 = !isNaN(z.max_price) ? tvCandleSeries.priceToCoordinate(z.max_price) : null;
+            if (y1 !== null && y2 !== null) yMid = (y1 + y2) / 2;
+            else if (y1 !== null) yMid = y1;
+            else if (y2 !== null) yMid = y2;
+            else return;
           }
 
-          if (yMax === null) yMax = -30;
-          if (yMin === null) yMin = height + 30;
-
-          let topY = Math.min(yMin, yMax);
-          let bottomY = Math.max(yMin, yMax);
-
-          if ((bottomY - topY) < 12) {
-            const mid = (topY + bottomY) / 2;
-            topY = mid - 6;
-            bottomY = mid + 6;
-          }
-
-          if (bottomY < -20 || topY > height + 20) return;
+          if (yMid < -20 || yMid > height + 20) return;
 
           const isDemand = (z.type === 'support' || z.type === 'DEMAND');
-          const isFlip = !!z.is_flip;
+          const isFlip = !!(z.is_flip || z.is_sr_flip);
           const isMajor = (z.strength === 'MAJOR');
 
-          // Shaded Rectangular Zone Box
+          // Strict compact "thick line zone" (7px ribbon centered on mid_price)
+          const ribbonHalfH = 3.5;
+          const topY = yMid - ribbonHalfH;
+          const bottomY = yMid + ribbonHalfH;
+
+          // Subtle Translucent Glow Halo
           ctx.fillStyle = isFlip 
-            ? 'rgba(245, 158, 11, 0.14)'
-            : (isDemand ? 'rgba(16, 185, 129, 0.13)' : 'rgba(239, 68, 68, 0.13)');
+            ? 'rgba(245, 158, 11, 0.18)'
+            : (isDemand ? 'rgba(16, 185, 129, 0.16)' : 'rgba(239, 68, 68, 0.16)');
           ctx.fillRect(0, topY, chartPlotWidth, bottomY - topY);
 
-          // Dashed Top and Bottom Boundaries
+          // Solid 2px Core Line
           ctx.save();
           ctx.strokeStyle = isFlip 
-            ? 'rgba(245, 158, 11, 0.70)'
-            : (isDemand ? 'rgba(16, 185, 129, 0.65)' : 'rgba(239, 68, 68, 0.65)');
-          ctx.lineWidth = isMajor ? 1.5 : 1.0;
-          ctx.setLineDash([5, 4]);
+            ? '#F59E0B'
+            : (isDemand ? '#10B981' : '#EF4444');
+          ctx.lineWidth = isMajor ? 2.0 : 1.5;
+          ctx.beginPath();
+          ctx.moveTo(0, yMid);
+          ctx.lineTo(chartPlotWidth, yMid);
+          ctx.stroke();
 
+          // Subtle Dashed Outer Bounds
+          ctx.strokeStyle = isFlip 
+            ? 'rgba(245, 158, 11, 0.45)'
+            : (isDemand ? 'rgba(16, 185, 129, 0.40)' : 'rgba(239, 68, 68, 0.40)');
+          ctx.lineWidth = 0.75;
+          ctx.setLineDash([3, 3]);
           ctx.beginPath();
           ctx.moveTo(0, topY);
           ctx.lineTo(chartPlotWidth, topY);
@@ -2775,32 +2798,28 @@
           ctx.stroke();
           ctx.restore();
 
-          // Zone Tag Badge Pill
-          const touchesText = z.touches ? `${z.touches}x` : '3x';
+          // Compact Badge Pill
+          const touchesText = z.touches ? `${z.touches}x` : '2x';
           let badgeText = '';
           if (isFlip) {
-            badgeText = `⚡ S-R FLIP POLARITY • ${touchesText} [${cSym}${Number(z.min_price).toFixed(1)} - ${cSym}${Number(z.max_price).toFixed(1)}]`;
+            badgeText = `⚡ S-R FLIP • ${touchesText} [${cSym}${Number(z.mid_price).toFixed(1)}]`;
           } else if (isDemand) {
-            badgeText = `🟢 DEMAND ZONE • ${touchesText} [${cSym}${Number(z.min_price).toFixed(1)} - ${cSym}${Number(z.max_price).toFixed(1)}] ${isMajor ? '★ MAJOR' : ''}`;
+            badgeText = `🟢 DEMAND • ${touchesText} [${cSym}${Number(z.mid_price).toFixed(1)}] ${isMajor ? '★' : ''}`;
           } else {
-            badgeText = `🔴 SUPPLY ZONE • ${touchesText} [${cSym}${Number(z.min_price).toFixed(1)} - ${cSym}${Number(z.max_price).toFixed(1)}] ${isMajor ? '★ MAJOR' : ''}`;
+            badgeText = `🔴 SUPPLY • ${touchesText} [${cSym}${Number(z.mid_price).toFixed(1)}] ${isMajor ? '★' : ''}`;
           }
 
-          ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
-          const textMetrics = ctx.measureText(badgeText);
-          const textWidth = textMetrics.width;
-          const badgePaddingX = 6;
-          const badgeHeight = 16;
-          const zoneH = bottomY - topY;
-          let badgeY = Math.max(topY + 2, Math.min(topY + (zoneH - badgeHeight) / 2, height - badgeHeight - 4));
-          if (topY <= 0 && bottomY >= 20) badgeY = 6;
-          else if (bottomY >= height && topY <= height - 20) badgeY = height - badgeHeight - 6;
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          const textWidth = ctx.measureText(badgeText).width;
+          const badgePaddingX = 5;
+          const badgeHeight = 14;
+          const badgeY = Math.max(3, Math.min(yMid - 7, height - badgeHeight - 3));
           const badgeX = 14;
 
-          // Badge Background Pill
+          // Pill Background
           ctx.fillStyle = isFlip 
-            ? 'rgba(120, 53, 15, 0.88)'
-            : (isDemand ? 'rgba(6, 78, 59, 0.88)' : 'rgba(127, 29, 29, 0.88)');
+            ? 'rgba(120, 53, 15, 0.90)'
+            : (isDemand ? 'rgba(6, 78, 59, 0.90)' : 'rgba(127, 29, 29, 0.90)');
           ctx.beginPath();
           if (ctx.roundRect) {
             ctx.roundRect(badgeX, badgeY, textWidth + badgePaddingX * 2, badgeHeight, 3);
@@ -2809,78 +2828,97 @@
           }
           ctx.fill();
 
-          // Badge Border
-          ctx.strokeStyle = isFlip 
-            ? 'rgba(251, 191, 36, 0.9)'
-            : (isDemand ? 'rgba(52, 211, 153, 0.9)' : 'rgba(248, 113, 113, 0.9)');
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = isFlip ? '#F59E0B' : (isDemand ? '#10B981' : '#EF4444');
+          ctx.lineWidth = 0.8;
           ctx.stroke();
 
-          // Badge Text
           ctx.fillStyle = isFlip ? '#FDE68A' : (isDemand ? '#A7F3D0' : '#FECACA');
-          ctx.fillText(badgeText, badgeX + badgePaddingX, badgeY + 11.5);
+          ctx.fillText(badgeText, badgeX + badgePaddingX, badgeY + 10.5);
         });
       }
 
-      // 2. Position Execution Risk-Reward Shaded Target Area
-      if (showChartPriceLines && currentConfluence && currentConfluence.execution_plan) {
-        const ep = currentConfluence.execution_plan;
-        const yEntry = tvCandleSeries.priceToCoordinate(ep.entry_price);
-        const ySL = tvCandleSeries.priceToCoordinate(ep.stop_loss);
-        const yT1 = tvCandleSeries.priceToCoordinate(ep.target_1);
+      // 2. Parallel Trendline Channels & Corridors
+      const channel = (currentData && currentData.parallel_channel)
+        ? currentData.parallel_channel
+        : (currentConfluence && currentConfluence.parallel_channel ? currentConfluence.parallel_channel : null);
 
-        if (yEntry !== null) {
-          // Profit Target Area (Green)
-          if (yT1 !== null) {
-            const targetTop = Math.min(yEntry, yT1);
-            const targetH = Math.abs(yEntry - yT1);
-            if (targetH > 2) {
-              ctx.fillStyle = 'rgba(16, 185, 129, 0.09)';
-              ctx.fillRect(0, targetTop, chartPlotWidth, targetH);
+      if (showChannel && channel && channel.active && channel.upper_line && channel.lower_line) {
+        let x1 = tvChart.timeScale().timeToCoordinate(channel.upper_line.start_time);
+        let x2 = tvChart.timeScale().timeToCoordinate(channel.upper_line.end_time);
 
-              ctx.save();
-              ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
-              ctx.setLineDash([4, 4]);
-              ctx.strokeRect(0, targetTop, chartPlotWidth, targetH);
-              ctx.restore();
+        if (x1 === null) x1 = 20;
+        if (x2 === null || x2 <= x1) x2 = chartPlotWidth - 10;
+        if (x2 < x1 + 50) x2 = Math.min(chartPlotWidth - 10, x1 + 200);
 
-              const tBadge = `🎯 TARGET 1 (+1:2.0 R:R) • ${cSym}${ep.target_1.toFixed(2)}`;
-              ctx.font = 'bold 9px "JetBrains Mono", monospace';
-              const tw = ctx.measureText(tBadge).width;
-              ctx.fillStyle = 'rgba(6, 78, 59, 0.85)';
-              ctx.fillRect(chartPlotWidth - tw - 24, targetTop + 4, tw + 12, 16);
-              ctx.strokeStyle = '#10B981';
-              ctx.strokeRect(chartPlotWidth - tw - 24, targetTop + 4, tw + 12, 16);
-              ctx.fillStyle = '#A7F3D0';
-              ctx.fillText(tBadge, chartPlotWidth - tw - 18, targetTop + 15);
-            }
+        const yUp1 = tvCandleSeries.priceToCoordinate(channel.upper_line.start_price);
+        const yUp2 = tvCandleSeries.priceToCoordinate(channel.upper_line.end_price);
+        const yLow1 = tvCandleSeries.priceToCoordinate(channel.lower_line.start_price);
+        const yLow2 = tvCandleSeries.priceToCoordinate(channel.lower_line.end_price);
+        const yMed1 = channel.median_line ? tvCandleSeries.priceToCoordinate(channel.median_line.start_price) : null;
+        const yMed2 = channel.median_line ? tvCandleSeries.priceToCoordinate(channel.median_line.end_price) : null;
+
+        if (yUp1 !== null && yUp2 !== null && yLow1 !== null && yLow2 !== null) {
+          const isAsc = channel.channel_type.includes('ASCENDING');
+          const isDesc = channel.channel_type.includes('DESCENDING');
+
+          // Shaded Channel Corridor Polygon Fill
+          ctx.save();
+          ctx.fillStyle = isAsc 
+            ? 'rgba(56, 189, 248, 0.05)' 
+            : (isDesc ? 'rgba(244, 63, 94, 0.05)' : 'rgba(148, 163, 184, 0.05)');
+          ctx.beginPath();
+          ctx.moveTo(x1, yUp1);
+          ctx.lineTo(x2, yUp2);
+          ctx.lineTo(x2, yLow2);
+          ctx.lineTo(x1, yLow1);
+          ctx.closePath();
+          ctx.fill();
+
+          // Upper Resistance Boundary Line
+          ctx.strokeStyle = isAsc ? '#38BDF8' : (isDesc ? '#F43F5E' : '#94A3B8');
+          ctx.lineWidth = 1.75;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(x1, yUp1);
+          ctx.lineTo(x2, yUp2);
+          ctx.stroke();
+
+          // Lower Support Boundary Line
+          ctx.strokeStyle = isAsc ? '#38BDF8' : (isDesc ? '#F43F5E' : '#94A3B8');
+          ctx.lineWidth = 1.75;
+          ctx.beginPath();
+          ctx.moveTo(x1, yLow1);
+          ctx.lineTo(x2, yLow2);
+          ctx.stroke();
+
+          // 50% Median Line (Dashed)
+          if (yMed1 !== null && yMed2 !== null) {
+            ctx.strokeStyle = isAsc ? 'rgba(56, 189, 248, 0.70)' : (isDesc ? 'rgba(244, 63, 94, 0.70)' : 'rgba(148, 163, 184, 0.70)');
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(x1, yMed1);
+            ctx.lineTo(x2, yMed2);
+            ctx.stroke();
           }
+          ctx.restore();
 
-          // Stop Loss Risk Area (Red)
-          if (ySL !== null) {
-            const riskTop = Math.min(yEntry, ySL);
-            const riskH = Math.abs(yEntry - ySL);
-            if (riskH > 2) {
-              ctx.fillStyle = 'rgba(239, 68, 68, 0.09)';
-              ctx.fillRect(0, riskTop, chartPlotWidth, riskH);
+          // Sleek Channel Badge Pill
+          const signStr = channel.slope_pct > 0 ? '+' : '';
+          const chBadge = `📐 ${channel.channel_type} [${channel.status.split('(')[0].trim()}] ${signStr}${channel.slope_pct}%`;
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          const chTw = ctx.measureText(chBadge).width;
+          const chBadgeH = 15;
+          const chBadgeX = Math.min(x2 - chTw - 14, chartPlotWidth - chTw - 14);
+          const chBadgeY = Math.max(10, Math.min(yUp2 - 18, height - 20));
 
-              ctx.save();
-              ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
-              ctx.setLineDash([4, 4]);
-              ctx.strokeRect(0, riskTop, chartPlotWidth, riskH);
-              ctx.restore();
-
-              const rBadge = `🛑 STOP LOSS RISK • ${cSym}${ep.stop_loss.toFixed(2)}`;
-              ctx.font = 'bold 9px "JetBrains Mono", monospace';
-              const rw = ctx.measureText(rBadge).width;
-              ctx.fillStyle = 'rgba(127, 29, 29, 0.85)';
-              ctx.fillRect(chartPlotWidth - rw - 24, riskTop + 4, rw + 12, 16);
-              ctx.strokeStyle = '#EF4444';
-              ctx.strokeRect(chartPlotWidth - rw - 24, riskTop + 4, rw + 12, 16);
-              ctx.fillStyle = '#FECACA';
-              ctx.fillText(rBadge, chartPlotWidth - rw - 18, riskTop + 15);
-            }
-          }
+          ctx.fillStyle = isAsc ? 'rgba(8, 47, 73, 0.88)' : (isDesc ? 'rgba(76, 5, 25, 0.88)' : 'rgba(30, 41, 59, 0.88)');
+          ctx.fillRect(Math.max(10, chBadgeX), chBadgeY, chTw + 12, chBadgeH);
+          ctx.strokeStyle = isAsc ? '#38BDF8' : (isDesc ? '#F43F5E' : '#94A3B8');
+          ctx.lineWidth = 1;
+          ctx.strokeRect(Math.max(10, chBadgeX), chBadgeY, chTw + 12, chBadgeH);
+          ctx.fillStyle = isAsc ? '#BAE6FD' : (isDesc ? '#FECDD3' : '#E2E8F0');
+          ctx.fillText(chBadge, Math.max(10, chBadgeX) + 6, chBadgeY + 11);
         }
       }
 
@@ -3143,7 +3181,8 @@
       // 1. Header Setup & Badges
       const setupTag = document.getElementById('confluenceSetupTag');
       if (setupTag && conf.market_structure) {
-        setupTag.textContent = `${conf.market_structure.phase} • ${conf.action}`;
+        const mtfBadge = (conf.mtf_alignment && conf.mtf_alignment.harmonized_summary) ? ` • [${conf.mtf_alignment.harmonized_summary}]` : '';
+        setupTag.textContent = `${conf.market_structure.phase} • ${conf.action}${mtfBadge}`;
       }
 
       const actionBadge = document.getElementById('confluenceActionBadge');
@@ -3198,13 +3237,14 @@
         if (bosEl) bosEl.textContent = ms.bos;
         if (chochEl) chochEl.textContent = ms.choch;
         if (zonesEl) {
-          const dStr = ms.demand_zone ? `${cSym}${ms.demand_zone.low_price.toFixed(2)}-${ms.demand_zone.high_price.toFixed(2)}` : 'Macro Base';
-          const sStr = ms.supply_zone ? `${cSym}${ms.supply_zone.low_price.toFixed(2)}-${ms.supply_zone.high_price.toFixed(2)}` : 'Overhead Resistance';
+          const dStr = ms.demand_zone ? `${cSym}${ms.demand_zone.min_price.toFixed(2)}-${ms.demand_zone.max_price.toFixed(2)}` : 'Macro Base';
+          const sStr = ms.supply_zone ? `${cSym}${ms.supply_zone.min_price.toFixed(2)}-${ms.supply_zone.max_price.toFixed(2)}` : 'Overhead Resistance';
           zonesEl.textContent = `Demand: ${dStr} | Supply: ${sStr}`;
         }
         if (flipEl) {
           const roundStr = ms.psychological_round ? ` | Round: ${cSym}${ms.psychological_round.level}` : '';
-          flipEl.textContent = (ms.sr_flip ? `Polarity: Active S-R Flip at ${cSym}${ms.sr_flip.mid_price.toFixed(2)}` : `Polarity: Standard S/R`) + roundStr;
+          const chStr = (conf.parallel_channel && conf.parallel_channel.active) ? ` | 📐 ${conf.parallel_channel.channel_type} [${conf.parallel_channel.status.split('(')[0].trim()}]` : '';
+          flipEl.textContent = (ms.sr_flip ? `Polarity: S-R Flip at ${cSym}${ms.sr_flip.mid_price.toFixed(2)}` : `Polarity: Thick Line S/R`) + roundStr + chStr;
         }
       }
 
@@ -3244,8 +3284,19 @@
         if (rsiDivEl) rsiDivEl.textContent = ind.rsi_divergence.detail;
       }
 
-      // 6. Tab 4: Multi-Timeframe Triad
-      if (conf.multi_timeframe) {
+      // 6. Tab 4: Multi-Timeframe Triad & Harmonized Asset Matrix
+      if (conf.mtf_alignment) {
+        const mtf = conf.mtf_alignment;
+        const htfEl = document.getElementById('tabHtfVal');
+        const mtfEl = document.getElementById('tabMtfVal');
+        const ltfEl = document.getElementById('tabLtfVal');
+        const triadSumEl = document.getElementById('tabTriadSummary');
+
+        if (htfEl) htfEl.textContent = `${mtf.daily_macro.status_badge}: ${mtf.daily_macro.regime}`;
+        if (mtfEl) mtfEl.textContent = `${mtf.hourly_structure.status_badge}: ${mtf.hourly_structure.regime}`;
+        if (ltfEl) ltfEl.textContent = `${mtf.ltf_execution.status_badge} (${mtf.timeframe}) • ${mtf.ltf_execution.candle}`;
+        if (triadSumEl) triadSumEl.textContent = `${mtf.harmonized_summary} (Anchor: ${mtf.macro_score}% | Trigger: ${mtf.ltf_score}%)`;
+      } else if (conf.multi_timeframe) {
         const mtf = conf.multi_timeframe;
         const htfEl = document.getElementById('tabHtfVal');
         const mtfEl = document.getElementById('tabMtfVal');
