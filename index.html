@@ -985,6 +985,159 @@
       line-height: 1.35;
     }
 
+    /* News & Catalyst Warning Banner */
+    .news-warning-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      transition: var(--transition-smooth);
+      flex-wrap: wrap;
+    }
+    .news-warning-banner.bear {
+      background: rgba(239, 68, 68, 0.10);
+      border-color: rgba(239, 68, 68, 0.45);
+      border-left: 4px solid var(--color-bear);
+    }
+    .news-warning-banner.amber {
+      background: rgba(245, 158, 11, 0.10);
+      border-color: rgba(245, 158, 11, 0.45);
+      border-left: 4px solid var(--color-accent-amber);
+    }
+    .news-warning-banner.bull {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.38);
+      border-left: 4px solid var(--color-bull);
+    }
+    .news-warning-banner.blue {
+      background: rgba(59, 130, 246, 0.08);
+      border-color: rgba(59, 130, 246, 0.35);
+      border-left: 4px solid var(--color-accent-blue);
+    }
+
+    .news-banner-left {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 260px;
+    }
+
+    .news-banner-top-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .news-status-pill {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-family: var(--font-mono);
+    }
+    .news-status-pill.bear {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--color-bear);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+    }
+    .news-status-pill.amber {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--color-accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+    .news-status-pill.bull {
+      background: rgba(16, 185, 129, 0.18);
+      color: var(--color-bull);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .news-status-pill.blue {
+      background: rgba(59, 130, 246, 0.18);
+      color: var(--color-accent-blue);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .news-banner-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .news-banner-msg {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    .news-banner-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .news-risk-rule-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .news-headlines-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .news-headline-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 5px;
+    }
+
+    .news-hl-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .news-hl-source {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .news-hl-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.35;
+      text-decoration: none;
+    }
+    .news-hl-title:hover {
+      color: var(--color-accent-blue);
+    }
+
     /* ==========================================================================
        MAIN WORKSPACE (FULL-WIDTH CANDLESTICK TERMINAL)
        ========================================================================== */
@@ -1823,6 +1976,23 @@
 
       <!-- Expandable Confluence Drawer: 4-Point Checklist, Deep Dive Tabs & Execution Numbers -->
       <div class="radar-drawer" id="confluenceDrawer">
+        <!-- Real-Time News, Catalyst & Event Warning System Banner -->
+        <div class="news-warning-banner blue" id="confluenceNewsBanner">
+          <div class="news-banner-left">
+            <div class="news-banner-top-row">
+              <span class="news-status-pill blue" id="newsBannerBadge">🛡️ SCANNING NEWS</span>
+              <span class="news-banner-title" id="newsBannerTitle">Evaluating Real-Time News, Fundamental Catalysts & Event Risk...</span>
+            </div>
+            <div class="news-banner-msg" id="newsBannerMessage">
+              Checking breaking headlines, institutional order flow catalysts, and central bank/earnings blackout windows.
+            </div>
+          </div>
+          <div class="news-banner-right">
+            <span class="news-risk-rule-pill" id="newsBannerRiskPill">✅ Standard 2% Risk Sizing</span>
+            <button class="conf-tab-btn" onclick="switchConfTab('tabNews', document.getElementById('btnTabNews'))">📰 Live News & Catalysts ↗</button>
+          </div>
+        </div>
+
         <!-- 4-Point High-Probability Confluence Checklist -->
         <div class="confirmation-stepper" id="confluenceStepper">
           <!-- Step 1: Macro Trend -->
@@ -1870,6 +2040,7 @@
           <button class="conf-tab-btn" id="btnTabMultiTf" onclick="switchConfTab('tabMultiTf', this)">⏱️ Multi-TF Triad</button>
           <button class="conf-tab-btn" id="btnTabBreakout" onclick="switchConfTab('tabBreakout', this)">⚡ Breakout Radar</button>
           <button class="conf-tab-btn" id="btnTabInstitutional" onclick="switchConfTab('tabInstitutional', this)">🧬 8 Advanced Confluences</button>
+          <button class="conf-tab-btn" id="btnTabNews" onclick="switchConfTab('tabNews', this)">📰 News & Catalysts</button>
         </div>
 
         <!-- Tab 1: Market Structure & S/R Zones -->
@@ -2030,6 +2201,46 @@
               <div class="conf-card-val" id="tabCvdVal">Tracking Delta...</div>
               <div class="conf-card-sub" id="tabCvdSub">Aggressive buying/selling absorption & exhaustion divergences</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Tab 7: Real-Time News, Catalyst & Event Warning System -->
+        <div class="conf-tab-pane" id="tabNews">
+          <div class="conf-grid-3">
+            <!-- Card 1: News Warning Verdict -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title">
+                <span>News vs Technical Alignment</span>
+                <span id="tabNewsWarningBadge" class="brand-badge">SCANNING</span>
+              </div>
+              <div class="conf-card-val" id="tabNewsWarningTitle">Evaluating News Flow...</div>
+              <div class="conf-card-sub" id="tabNewsWarningMsg">Cross-checking breaking news sentiment against technical trade bias.</div>
+            </div>
+
+            <!-- Card 2: Sentiment Polarity & Risk Adjustment -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title">
+                <span>Sentiment Score & Risk Rule</span>
+                <span id="tabNewsScoreBadge" class="brand-badge">SCORE: 0</span>
+              </div>
+              <div class="conf-card-val" id="tabNewsSentimentLabel">Neutral / Balanced</div>
+              <div class="conf-card-sub" id="tabNewsRiskRule">Standard 2% Risk Sizing • Follow Anti-Hunt SL</div>
+            </div>
+
+            <!-- Card 3: Event & Catalyst Radar -->
+            <div class="conf-detail-card">
+              <div class="conf-card-title">
+                <span>Event & Catalyst Watch</span>
+                <span id="tabNewsVolBadge" class="brand-badge">NORMAL</span>
+              </div>
+              <div class="conf-card-val" id="tabNewsEventWatch">Corporate & Macro Calendar</div>
+              <div class="conf-card-sub" id="tabNewsEventDrivers">Key Drivers: Order flow & sector catalysts</div>
+            </div>
+          </div>
+
+          <!-- Live Headlines & Catalyst Feed -->
+          <div class="news-headlines-list" id="newsHeadlinesList">
+            <!-- Dynamically populated headlines -->
           </div>
         </div>
 
@@ -3162,6 +3373,70 @@
         }
       }
 
+      // 8b. Real-Time News, Catalyst & Event Warning System (Banner + Tab 7)
+      const newsIntel = conf.news_intelligence || (conf.advanced_confluence && conf.advanced_confluence.news_intelligence) || null;
+      if (newsIntel) {
+        const wColor = newsIntel.warning_color || 'blue';
+        const bannerEl = document.getElementById('confluenceNewsBanner');
+        const badgeEl = document.getElementById('newsBannerBadge');
+        const titleEl = document.getElementById('newsBannerTitle');
+        const msgEl = document.getElementById('newsBannerMessage');
+        const riskPillEl = document.getElementById('newsBannerRiskPill');
+
+        if (bannerEl) bannerEl.className = `news-warning-banner ${wColor}`;
+        if (badgeEl) {
+          badgeEl.className = `news-status-pill ${wColor}`;
+          badgeEl.textContent = newsIntel.warning_badge || '🛡️ NEWS RADAR';
+        }
+        if (titleEl) titleEl.textContent = newsIntel.warning_title || '';
+        if (msgEl) msgEl.textContent = newsIntel.warning_message || '';
+        if (riskPillEl) riskPillEl.textContent = newsIntel.risk_adjustment || '✅ Standard 2% Risk Sizing';
+
+        // Tab 7: News & Catalysts Cards
+        const tabWBadge = document.getElementById('tabNewsWarningBadge');
+        const tabWTitle = document.getElementById('tabNewsWarningTitle');
+        const tabWMsg = document.getElementById('tabNewsWarningMsg');
+        const tabScoreBadge = document.getElementById('tabNewsScoreBadge');
+        const tabSentLabel = document.getElementById('tabNewsSentimentLabel');
+        const tabRiskRule = document.getElementById('tabNewsRiskRule');
+        const tabVolBadge = document.getElementById('tabNewsVolBadge');
+        const tabEventWatch = document.getElementById('tabNewsEventWatch');
+        const tabEventDrivers = document.getElementById('tabNewsEventDrivers');
+        const hlListEl = document.getElementById('newsHeadlinesList');
+
+        if (tabWBadge) tabWBadge.textContent = newsIntel.warning_badge || 'CLEAR';
+        if (tabWTitle) tabWTitle.textContent = newsIntel.warning_title || 'Clear Horizon';
+        if (tabWMsg) tabWMsg.textContent = newsIntel.warning_message || '';
+
+        const sScore = newsIntel.sentiment_score || 0;
+        if (tabScoreBadge) tabScoreBadge.textContent = `SCORE: ${sScore >= 0 ? '+' : ''}${sScore}`;
+        if (tabSentLabel) tabSentLabel.textContent = `${newsIntel.sentiment_label || 'NEUTRAL'} (${sScore >= 0 ? '+' : ''}${sScore})`;
+        if (tabRiskRule) tabRiskRule.textContent = newsIntel.risk_adjustment || '';
+
+        const evRadar = newsIntel.event_radar || {};
+        if (tabVolBadge) tabVolBadge.textContent = `VOL: ${evRadar.volatility_risk || 'NORMAL'}`;
+        if (tabEventWatch) tabEventWatch.textContent = evRadar.active_watch || 'Corporate & Macro Calendar';
+        if (tabEventDrivers) tabEventDrivers.textContent = `Drivers: ${evRadar.key_drivers || ''} • ${evRadar.protection_rule || ''}`;
+
+        if (hlListEl && Array.isArray(newsIntel.headlines)) {
+          hlListEl.innerHTML = newsIntel.headlines.map(h => {
+            const sent = (h.sentiment || 'NEUTRAL').toUpperCase();
+            const pillClass = sent === 'BULLISH' ? 'bull' : (sent === 'BEARISH' ? 'bear' : (sent === 'VOLATILITY' ? 'amber' : 'blue'));
+            const linkHref = (h.link && h.link !== '#') ? `href="${escapeHtml(h.link)}" target="_blank" rel="noopener"` : '';
+            const tagName = linkHref ? 'a' : 'span';
+            return `
+              <div class="news-headline-item">
+                <div class="news-hl-top">
+                  <span class="news-hl-source">${escapeHtml(h.source || 'Market Wire')} • ${escapeHtml(h.published || 'Live')}</span>
+                  <span class="news-status-pill ${pillClass}">${escapeHtml(sent)} (${escapeHtml(h.impact || 'MED')})</span>
+                </div>
+                <${tagName} class="news-hl-title" ${linkHref}>${escapeHtml(h.title || '')}</${tagName}>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
       // 8. Human Discipline Rule & Execution Numbers
       const ruleTitle = document.getElementById('confluenceRuleTitle');
       const ruleBody = document.getElementById('confluenceRuleBody');
@@ -3268,6 +3543,7 @@
       }
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
       const ep = currentConfluence.execution_plan;
+      const ni = currentConfluence.news_intelligence || {};
       const t3Val = ep.target_3 || (ep.target_2 * 1.05);
       const text = [
         `========================================`,
@@ -3289,6 +3565,11 @@
         `  • TP1 (1:2.0): ${cSym}${ep.target_1.toFixed(2)} (Bank 50% & Slide SL to Breakeven at ${cSym}${(ep.breakeven_price || ep.entry_price).toFixed(2)})`,
         `  • TP2 (1:3.5): ${cSym}${ep.target_2.toFixed(2)} (Bank 30% - 1.618 Fib Extension)`,
         `  • TP3 (1:5.0): ${cSym}${t3Val.toFixed(2)} (20% Moonbag Runner - HTF Target)`,
+        `----------------------------------------`,
+        `[NEWS & CATALYST WARNING RADAR]`,
+        `  • Status: ${ni.warning_badge || 'CLEAR HORIZON'} (Sentiment Score: ${ni.sentiment_score || 0})`,
+        `  • Verdict: ${ni.warning_title || 'No conflicting breaking news'}`,
+        `  • Risk Rule: ${ni.risk_adjustment || 'Standard 2% Risk Sizing'}`,
         `----------------------------------------`,
         `[RISK & SIZING]`,
         `  • Position Size: ${ep.position_quantity || 1} shares`,

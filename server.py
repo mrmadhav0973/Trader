@@ -126,7 +126,7 @@ def refresh_screener_cache(
                 currency_symbol = df.attrs.get("currency_symbol", "₹" if ".NS" in sym else "$")
 
                 # Master 95% Institutional Confluence (100% exact parity with Chart & Confluence Suite)
-                conf = evaluate_master_confluence(df, current_price=curr_p, capital=capital, risk_pct=0.02, symbol=sym)
+                conf = evaluate_master_confluence(df, current_price=curr_p, capital=capital, risk_pct=0.02, symbol=sym, fast_news=True)
                 acc_score = int(conf.get("accuracy_score", 0))
                 passed_count = int(conf.get("passed_count", 0))
 
@@ -135,6 +135,7 @@ def refresh_screener_cache(
                     return None
 
                 ep = conf.get("execution_plan", {})
+                news_intel = conf.get("news_intelligence", {})
                 trade_dir = ep.get("direction", "LONG")
                 action = conf.get("action", "BUY / LONG")
                 grade = conf.get("grade", "GRADE A")
@@ -159,6 +160,14 @@ def refresh_screener_cache(
 
                 # Collect active institutional edge badges
                 edges = []
+                w_lvl = news_intel.get("warning_level", "")
+                if w_lvl == "CRITICAL_CONFLICT":
+                    edges.append("🚨 News Conflict")
+                elif w_lvl == "HIGH_VOLATILITY_ALERT":
+                    edges.append("⚡ News Vol Alert")
+                elif w_lvl == "CATALYST_ALIGNED":
+                    edges.append("📰 Catalyst Aligned")
+
                 fvgs = conf.get("fvgs", [])
                 if fvgs:
                     edges.append(f"🧬 {len(fvgs)} FVG")
@@ -214,7 +223,10 @@ def refresh_screener_cache(
                     "risk_reward": rr_ratio,
                     "quantity": qty,
                     "max_loss": max_loss,
-                    "adr_feasibility": adr_feas
+                    "adr_feasibility": adr_feas,
+                    "news_warning_level": news_intel.get("warning_level", "CLEAR_HORIZON"),
+                    "news_badge": news_intel.get("warning_badge", "🛡️ CLEAR NEWS HORIZON"),
+                    "news_title": news_intel.get("warning_title", "")
                 }
             except Exception:
                 return None
@@ -444,6 +456,7 @@ def get_analysis(
         "fvgs": confluence.get("fvgs", []),
         "fib_golden_pocket": confluence.get("fib_golden_pocket", {}),
         "advanced_confluence": confluence.get("advanced_confluence", {}),
+        "news_intelligence": confluence.get("news_intelligence", {}),
         "breakout_radar": radar,
         "confluence": confluence,
         "market_status": get_market_status(resolved_sym)
@@ -452,6 +465,23 @@ def get_analysis(
     _ANALYSIS_CACHE[cache_key] = (now, payload)
     _ANALYSIS_CACHE[(symbol.strip().upper(), timeframe)] = (now, payload)
     return payload
+
+
+@app.get("/api/news")
+def get_symbol_news(
+    symbol: str = Query("TATAPOWER.NS", description="Stock ticker"),
+    timeframe: str = Query("1d", description="Timeframe")
+):
+    """
+    Return real-time News, Catalyst & Event Warning telemetry for a symbol.
+    """
+    try:
+        from core.news_engine import analyze_symbol_news
+        df = fetch_ohlcv(symbol, timeframe=timeframe)
+        conf = evaluate_master_confluence(df, symbol=symbol)
+        return conf.get("news_intelligence") or analyze_symbol_news(symbol, df=df)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch news for {symbol}: {str(e)}")
 
 
 @app.get("/api/breakout")

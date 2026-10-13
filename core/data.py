@@ -164,6 +164,8 @@ def resolve_candidates(symbol: str) -> list[str]:
         return [f"{base}-USD"]
 
     # If the user already provided an explicit exchange or asset suffix
+    if sym.endswith(".NS"):
+        return [sym, f"{sym[:-3]}.BO"]
     if any(c in sym for c in [".", "-", "=", "^"]):
         return [sym]
 

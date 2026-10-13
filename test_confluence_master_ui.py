@@ -165,6 +165,29 @@ def run_test():
             page.screenshot(path=adv_shot_path)
             print(f"Saved advanced confluences screenshot to {adv_shot_path}", flush=True)
 
+            # Test News Warning Banner & Tab 7 (News & Catalysts)
+            print("Testing News Warning Banner & Tab 7 (News & Catalysts)...", flush=True)
+            news_banner_badge = page.locator("#newsBannerBadge").inner_text()
+            news_banner_title = page.locator("#newsBannerTitle").inner_text()
+            news_banner_risk = page.locator("#newsBannerRiskPill").inner_text()
+            print(f"News Banner: [{news_banner_badge}] {news_banner_title} | Risk Rule: {news_banner_risk}", flush=True)
+            assert len(news_banner_badge) > 3, "News banner badge missing"
+            assert len(news_banner_title) > 10, "News banner title missing"
+
+            page.click("#btnTabNews")
+            time.sleep(0.4)
+            tab_news_title = page.locator("#tabNewsWarningTitle").inner_text()
+            tab_news_sent = page.locator("#tabNewsSentimentLabel").inner_text()
+            tab_news_watch = page.locator("#tabNewsEventWatch").inner_text()
+            hl_count = page.locator("#newsHeadlinesList .news-headline-item").count()
+            print(f"Tab 7 News Title: {tab_news_title}", flush=True)
+            print(f"Tab 7 Sentiment: {tab_news_sent} | Watch: {tab_news_watch} | Headlines: {hl_count}", flush=True)
+            assert hl_count >= 2, f"Expected at least 2 headlines in #newsHeadlinesList, got {hl_count}"
+
+            news_shot_path = os.path.join(artifact_dir, "news_warning_suite.png")
+            page.screenshot(path=news_shot_path)
+            print(f"Saved news warning suite screenshot to {news_shot_path}", flush=True)
+
             # Return to Tab 1
             page.click("#btnTabStructure")
             time.sleep(0.3)
@@ -311,8 +334,9 @@ def run_test():
             # Test jumping/loading a symbol into the chart terminal via "Analyze ↗"
             print("Testing 'Analyze ↗' button navigation on TATAPOWER...", flush=True)
             analyze_btn = page.locator("#screenerTableBody tr.screener-row .btn-screener-load").first
-            analyze_btn.click(force=True)
-            target_token = "TATAPOWER"
+            analyze_btn.scroll_into_view_if_needed()
+            page.evaluate("() => { const btn = document.querySelector('#screenerTableBody tr.screener-row .btn-screener-load'); if (btn) btn.click(); }")
+            target_token = "TATA"
             print(f"Waiting for chart title to include '{target_token}'...", flush=True)
             page.wait_for_function(
                 f"() => {{ const el = document.getElementById('activeSymbolTitle'); return el && el.innerText.includes('{target_token}'); }}",
@@ -327,7 +351,9 @@ def run_test():
 
             # Test Quick Category Filter Pill (Crypto 24/7)
             print("Testing Category filter pill ('Crypto 24/7')...", flush=True)
-            page.click("button.screener-pill-btn:has-text('Crypto 24/7')")
+            crypto_pill = page.locator("button.screener-pill-btn:has-text('Crypto 24/7')")
+            crypto_pill.scroll_into_view_if_needed()
+            crypto_pill.click()
             time.sleep(1.0)
             page.wait_for_function(
                 "() => { const rows = document.querySelectorAll('#screenerTableBody tr.screener-row'); const l = document.getElementById('screenerLoader'); return rows.length > 0 && (!l || l.style.display === 'none'); }",

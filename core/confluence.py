@@ -35,6 +35,7 @@ from core.smc import (
 )
 from core.breakout import detect_breakout_confirmation
 from core.execution_engine import calculate_perfect_execution_plan
+from core.news_engine import analyze_symbol_news
 from core.advanced_confluence import (
     detect_fair_value_gaps as detect_advanced_fvgs,
     calculate_fibonacci_golden_pocket,
@@ -52,7 +53,8 @@ def evaluate_master_confluence(
     current_price: Optional[float] = None,
     capital: float = 5000.0,
     risk_pct: float = 0.02,
-    symbol: Optional[str] = None
+    symbol: Optional[str] = None,
+    fast_news: bool = False
 ) -> Dict[str, Any]:
     """
     Run comprehensive institutional analysis across all 8 masterclass dimensions
@@ -401,7 +403,19 @@ def evaluate_master_confluence(
         action = "WAIT / PRESERVE CAPITAL"
         verdict = "Insufficient Confluence. Market is consolidating or out of zone. Cash is a position; preserve capital until high-probability alignment occurs."
 
-    # Time-of-Day & Order Flow Nuances
+    # Time-of-Day, Order Flow & Breaking News Warnings
+    news_intel = analyze_symbol_news(
+        symbol=symbol,
+        technical_direction="LONG" if overall_long else "SHORT",
+        df=df,
+        fast_mode=fast_news
+    )
+
+    if news_intel.get("warning_level") == "CRITICAL_CONFLICT":
+        verdict += f" {news_intel.get('warning_title')} — {news_intel.get('risk_adjustment')}."
+    elif news_intel.get("warning_level") == "HIGH_VOLATILITY_ALERT":
+        verdict += f" {news_intel.get('warning_title')}."
+
     if killzone_data.get("is_dead_zone"):
         verdict += " ⚠️ TIME-OF-DAY ADVISORY: Currently in Midday Lunch Chop Dead Zone (11:30 - 13:30 IST). Option theta decay & false breakout risk."
     elif has_cvd_bear_exhaustion and overall_long:
@@ -462,6 +476,7 @@ def evaluate_master_confluence(
             "triad_alignment": "3/3 FULLY ALIGNED" if (htf_bullish and mtf_bullish and ltf_bullish) or (htf_bearish and mtf_bearish and ltf_bearish) else ("2/3 PARTIAL ALIGNMENT" if (htf_bullish == mtf_bullish or mtf_bullish == ltf_bullish) else "CONFLICTING / CHOPPY")
         },
         "execution_plan": exec_plan,
+        "news_intelligence": news_intel,
         "all_sr_zones": sr_zones,
         "fvgs": fvgs,
         "fib_golden_pocket": fib_data,
@@ -479,6 +494,7 @@ def evaluate_master_confluence(
             "oi_cluster": oi_data,
             "ttm_squeeze": ttm_data,
             "vix_regime": vix_data,
-            "cvd": cvd_data
+            "cvd": cvd_data,
+            "news_intelligence": news_intel
         }
     }
