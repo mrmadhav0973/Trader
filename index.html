@@ -1850,6 +1850,303 @@
       font-size: 13px;
       color: var(--text-secondary);
     }
+
+    /* ==========================================================================
+       20-YEAR INSTITUTIONAL VETERAN AI DESK STYLING
+       ========================================================================== */
+    .ai-veteran-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-subtle);
+      margin-bottom: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+    .ai-veteran-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #8B5CF6, #3B82F6, #10B981);
+    }
+    .ai-desk-header {
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-surface-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      user-select: none;
+    }
+    .ai-desk-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ai-desk-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      color: #A78BFA;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .ai-desk-heading-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ai-desk-subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .ai-desk-header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ai-verdict-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .ai-verdict-high {
+      background: var(--color-bull-soft);
+      border: 1px solid var(--color-bull);
+      color: var(--color-bull);
+    }
+    .ai-verdict-caution {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--color-accent-amber);
+      color: var(--color-accent-amber);
+    }
+    .ai-verdict-trap {
+      background: var(--color-bear-soft);
+      border: 1px solid var(--color-bear);
+      color: var(--color-bear);
+    }
+    .ai-conviction-score {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 800;
+      color: var(--text-primary);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+    .btn-audit-refresh {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: var(--transition-smooth);
+    }
+    .btn-audit-refresh:hover {
+      background: var(--color-accent-blue);
+      color: #FFF;
+      border-color: var(--color-accent-blue);
+    }
+    .ai-desk-body {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .ai-headline-banner {
+      background: var(--bg-surface-elevated);
+      border-left: 4px solid #8B5CF6;
+      border-radius: 4px;
+      padding: 12px 16px;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+    .ai-desk-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      .ai-desk-grid { grid-template-columns: 1fr; }
+    }
+    .ai-box {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ai-box-title {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ai-rationale-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ai-rationale-list li {
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      position: relative;
+      padding-left: 18px;
+    }
+    .ai-rationale-list li::before {
+      content: "▪";
+      position: absolute;
+      left: 2px;
+      color: #8B5CF6;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .ai-trap-box {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .ai-trap-icon { font-size: 18px; line-height: 1; flex-shrink: 0; }
+    .ai-trap-text { font-size: 12px; line-height: 1.5; color: var(--text-primary); }
+    .ai-exec-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+    .ai-exec-row:last-child { border-bottom: none; }
+    .ai-exec-label { color: var(--text-muted); font-weight: 600; }
+    .ai-exec-val { font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); text-align: right; }
+    
+    /* Interactive Chat */
+    .ai-chat-section {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ai-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ai-chip-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+    .ai-chip-btn:hover {
+      background: #8B5CF6;
+      color: #FFF;
+      border-color: #8B5CF6;
+    }
+    .ai-chat-stream {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 4px;
+    }
+    .ai-msg {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .ai-msg-user {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: var(--text-primary);
+      align-self: flex-end;
+      max-width: 80%;
+    }
+    .ai-msg-veteran {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      align-self: flex-start;
+      max-width: 90%;
+    }
+    .ai-chat-input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .ai-chat-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--text-primary);
+      font-family: inherit;
+    }
+    .ai-chat-input:focus {
+      outline: none;
+      border-color: #8B5CF6;
+    }
+    .btn-ai-send {
+      background: linear-gradient(135deg, #8B5CF6, #3B82F6);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      color: #FFF;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+    .btn-ai-send:hover { opacity: 0.9; }
   </style>
 </head>
 <body>
@@ -2330,6 +2627,115 @@
               <span class="mgmt-icon">🎯</span>
               <span class="mgmt-text" id="confTradeMgmtText">Trade Management: Once TP1 hits, move SL immediately to Breakeven (+0.15% fee buffer). Never move SL away from price.</span>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 20-YEAR INSTITUTIONAL VETERAN AI DESK -->
+    <div class="ai-veteran-card" id="aiVeteranDeskCard">
+      <div class="ai-desk-header" onclick="toggleAiDeskDrawer()">
+        <div class="ai-desk-title-group">
+          <div class="ai-desk-icon">🧠</div>
+          <div>
+            <div class="ai-desk-heading-title">
+              <span>20-Year Institutional Veteran AI Desk</span>
+              <span class="ai-conviction-score" id="aiDeskModelBadge">⚡ Groq 120B Engine</span>
+            </div>
+            <div class="ai-desk-subtext">
+              Proprietary Desk Head • Wyckoff Stages • Dow Structure • Trap Detection • Smart Money Invalidation
+            </div>
+          </div>
+        </div>
+
+        <div class="ai-desk-header-right">
+          <span class="ai-verdict-badge ai-verdict-caution" id="aiDeskVerdictBadge">🟡 CONSULTING DESK...</span>
+          <span class="ai-conviction-score" id="aiDeskConvictionScore">--% Conviction</span>
+          <button class="btn-audit-refresh" id="btnRefreshAiAudit" onclick="event.stopPropagation(); loadAiAudit(true);" title="Re-Audit Setup via Groq 120B">🔄 Audit Trade</button>
+          <span class="drawer-arrow" id="aiDeskDrawerArrow">▲</span>
+        </div>
+      </div>
+
+      <div class="ai-desk-body" id="aiDeskBody">
+        <!-- Desk Verdict Headline Banner -->
+        <div class="ai-headline-banner" id="aiDeskHeadline">
+          Evaluating live market structure, liquidity traps, and order flow...
+        </div>
+
+        <div class="ai-desk-grid">
+          <!-- Left Column: Rationale & Trap Warning -->
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="ai-box">
+              <div class="ai-box-title">
+                <span>🏛️ 20-Year Desk Rationale & Wyckoff Analysis</span>
+              </div>
+              <ul class="ai-rationale-list" id="aiDeskRationaleList">
+                <li>Scanning market cycle and structural breaks...</li>
+              </ul>
+            </div>
+
+            <!-- Trap Warning Box -->
+            <div class="ai-trap-box" id="aiDeskTrapBox">
+              <div class="ai-trap-icon">⚠️</div>
+              <div class="ai-trap-text">
+                <strong style="color: var(--color-bear);">Institutional Trap Warning:</strong>
+                <span id="aiDeskTrapWarning">Analyzing liquidity pools and retail stops...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Precision Execution & Invalidation -->
+          <div class="ai-box">
+            <div class="ai-box-title">
+              <span>🎯 Precision Execution & Invalidation</span>
+            </div>
+            <div class="ai-exec-row">
+              <span class="ai-exec-label">Optimal Entry:</span>
+              <span class="ai-exec-val" id="aiDeskOptimalEntry" style="color: var(--color-accent-blue);">--</span>
+            </div>
+            <div class="ai-exec-row">
+              <span class="ai-exec-label">Smart Anti-Hunt SL:</span>
+              <span class="ai-exec-val" id="aiDeskSmartSL" style="color: var(--color-bear);">--</span>
+            </div>
+            <div class="ai-exec-row">
+              <span class="ai-exec-label">Target Projection:</span>
+              <span class="ai-exec-val" id="aiDeskTargetProjection" style="color: var(--color-bull);">--</span>
+            </div>
+            <div class="ai-exec-row" style="flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 8px;">
+              <span class="ai-exec-label">Capital Defense Rule:</span>
+              <span class="ai-exec-val" id="aiDeskRiskRule" style="text-align: left; font-size: 11.5px; line-height: 1.4; color: var(--color-accent-amber);">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Consultation Drawer -->
+        <div class="ai-chat-section">
+          <div class="ai-box-title" style="justify-content: space-between;">
+            <span>💬 Direct Consultation with Desk Head</span>
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Ask any 'what-if' or execution question</span>
+          </div>
+
+          <!-- Quick Chips -->
+          <div class="ai-chips-row">
+            <button class="ai-chip-btn" onclick="sendAiChipQuestion('Is this a retail bull/bear trap?')">🪤 Is this a retail trap?</button>
+            <button class="ai-chip-btn" onclick="sendAiChipQuestion('Where are institutional stop-losses clustered?')">🎯 Where are stops clustered?</button>
+            <button class="ai-chip-btn" onclick="sendAiChipQuestion('What exact price action invalidates this setup?')">❌ What invalidates this trade?</button>
+            <button class="ai-chip-btn" onclick="sendAiChipQuestion('Should I scale out 50% at TP1 or hold runner?')">📈 How should I scale TP?</button>
+          </div>
+
+          <!-- Chat Stream -->
+          <div class="ai-chat-stream" id="aiChatStream">
+            <div class="ai-msg ai-msg-veteran">
+              <strong>Desk Head:</strong> I am tracking this symbol's live order flow, Dow structure, and confluences. What would you like to drill down on?
+            </div>
+          </div>
+
+          <!-- Input Row -->
+          <div class="ai-chat-input-row">
+            <input type="text" class="ai-chat-input" id="aiChatInput" placeholder="Ask the 20-Year Veteran trader (e.g. 'What if price bounces to ₹350?')..." onkeydown="if(event.key==='Enter') submitAiChat();">
+            <button class="btn-ai-send" id="btnAiChatSend" onclick="submitAiChat()">
+              <span>⚡ Consult Desk</span>
+            </button>
           </div>
         </div>
       </div>
@@ -3860,6 +4266,9 @@
 
       // 9. Synchronize clean price lines on chart
       updateChartPriceLines(conf);
+
+      // 10. Automatically trigger 20-Year Institutional Veteran AI Desk audit
+      loadAiAudit(false);
     }
 
     function copyConfluenceOrder() {
@@ -3913,6 +4322,195 @@
         });
       } else {
         showNotification('📋 Order: ' + `${cSym}${ep.entry_price} | SL: ${cSym}${ep.stop_loss} | TP1: ${cSym}${ep.target_1} | TP2: ${cSym}${ep.target_2}`);
+      }
+    }
+
+    // =========================================================================
+    // 20-YEAR INSTITUTIONAL VETERAN AI DESK JAVASCRIPT ENGINE
+    // =========================================================================
+    let isAiDeskDrawerOpen = true;
+    let aiChatHistory = [];
+    let isAiAuditLoading = false;
+
+    function toggleAiDeskDrawer() {
+      isAiDeskDrawerOpen = !isAiDeskDrawerOpen;
+      const body = document.getElementById('aiDeskBody');
+      const arrow = document.getElementById('aiDeskDrawerArrow');
+      if (body) {
+        body.style.display = isAiDeskDrawerOpen ? 'flex' : 'none';
+      }
+      if (arrow) {
+        arrow.textContent = isAiDeskDrawerOpen ? '▲' : '▼';
+      }
+    }
+
+    async function loadAiAudit(forceRefresh = false) {
+      if (isAiAuditLoading) return;
+      isAiAuditLoading = true;
+
+      const badge = document.getElementById('aiDeskVerdictBadge');
+      const score = document.getElementById('aiDeskConvictionScore');
+      const headline = document.getElementById('aiDeskHeadline');
+      const rationaleList = document.getElementById('aiDeskRationaleList');
+      const trapWarning = document.getElementById('aiDeskTrapWarning');
+      const optimalEntry = document.getElementById('aiDeskOptimalEntry');
+      const smartSL = document.getElementById('aiDeskSmartSL');
+      const targetProj = document.getElementById('aiDeskTargetProjection');
+      const riskRule = document.getElementById('aiDeskRiskRule');
+      const modelBadge = document.getElementById('aiDeskModelBadge');
+
+      if (badge) {
+        badge.className = 'ai-verdict-badge ai-verdict-caution';
+        badge.textContent = '🟡 CONSULTING DESK...';
+      }
+      if (headline) headline.textContent = 'Consulting 20-Year Veteran Desk Head via Groq 120B...';
+
+      try {
+        const sym = currentSymbol || 'TATAPOWER.NS';
+        const tf = currentTimeframe || '1d';
+        const url = `/api/ai/audit?symbol=${encodeURIComponent(sym)}&timeframe=${encodeURIComponent(tf)}&force_refresh=${forceRefresh}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.error) {
+          if (headline) headline.textContent = `⚠️ Desk review notice: ${data.error}`;
+          return;
+        }
+
+        // 1. Verdict & Badge
+        const v = data.desk_verdict || 'CAUTION_WAIT_FOR_RETEST';
+        if (badge) {
+          if (v === 'HIGH_CONVICTION_EXECUTION') {
+            badge.className = 'ai-verdict-badge ai-verdict-high';
+            badge.textContent = data.verdict_badge || '🟢 HIGH CONVICTION';
+          } else if (v === 'HARD_PASS_INSTITUTIONAL_TRAP') {
+            badge.className = 'ai-verdict-badge ai-verdict-trap';
+            badge.textContent = data.verdict_badge || '🔴 INSTITUTIONAL TRAP';
+          } else {
+            badge.className = 'ai-verdict-badge ai-verdict-caution';
+            badge.textContent = data.verdict_badge || '🟡 CAUTION / RETEST';
+          }
+        }
+
+        // 2. Conviction Score
+        if (score) {
+          score.textContent = `${data.conviction_score || 60}% Conviction`;
+        }
+
+        // 3. Model Badge
+        if (modelBadge && data.model_used) {
+          const mShort = data.model_used.includes('120b') ? 'Groq 120B' : (data.model_used.includes('27b') ? 'Qwen 27B' : data.model_used);
+          modelBadge.textContent = `⚡ ${mShort} Engine`;
+        }
+
+        // 4. Headline
+        if (headline) {
+          headline.textContent = data.verdict_headline || 'Market structure evaluation complete.';
+        }
+
+        // 5. Rationale List
+        if (rationaleList && Array.isArray(data.veteran_rationale)) {
+          rationaleList.innerHTML = data.veteran_rationale.map(r => `<li>${escapeHtml(r)}</li>`).join('');
+        }
+
+        // 6. Trap Warning
+        if (trapWarning) {
+          trapWarning.textContent = data.institutional_trap_warning || 'Observe liquidity reaction at previous swing extremes.';
+        }
+
+        // 7. Precision Execution Plan
+        const exec = data.precision_execution || {};
+        if (optimalEntry) optimalEntry.textContent = exec.optimal_entry || '--';
+        if (smartSL) smartSL.textContent = exec.smart_stop_loss || '--';
+        if (targetProj) targetProj.textContent = exec.target_projection || '--';
+        if (riskRule) riskRule.textContent = exec.risk_rule || '--';
+
+      } catch (err) {
+        console.warn('AI Audit failed:', err);
+        if (headline) headline.textContent = 'Desk audit temporarily in standby. Check network connection.';
+      } finally {
+        isAiAuditLoading = false;
+      }
+    }
+
+    function sendAiChipQuestion(qText) {
+      const input = document.getElementById('aiChatInput');
+      if (input) input.value = qText;
+      submitAiChat(qText);
+    }
+
+    async function submitAiChat(customQuestion = null) {
+      const input = document.getElementById('aiChatInput');
+      const stream = document.getElementById('aiChatStream');
+      const question = customQuestion || (input ? input.value.trim() : '');
+      if (!question) return;
+
+      if (input && !customQuestion) input.value = '';
+
+      // Append user bubble
+      if (stream) {
+        const uMsg = document.createElement('div');
+        uMsg.className = 'ai-msg ai-msg-user';
+        uMsg.innerHTML = `<strong>You:</strong> ${escapeHtml(question)}`;
+        stream.appendChild(uMsg);
+
+        // Typing indicator
+        const typing = document.createElement('div');
+        typing.className = 'ai-msg ai-msg-veteran';
+        typing.id = 'aiTypingIndicator';
+        typing.innerHTML = `<em>Desk Head is evaluating order flow & liquidity...</em>`;
+        stream.appendChild(typing);
+        stream.scrollTop = stream.scrollHeight;
+      }
+
+      try {
+        const sym = currentSymbol || 'TATAPOWER.NS';
+        const tf = currentTimeframe || '1d';
+        const res = await fetch('/api/ai/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: sym,
+            timeframe: tf,
+            question: question,
+            history: aiChatHistory
+          })
+        });
+
+        const typingEl = document.getElementById('aiTypingIndicator');
+        if (typingEl) typingEl.remove();
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const answer = data.answer || 'The desk is recalculating risk bounds. Repeat your query shortly.';
+
+        // Append assistant response
+        if (stream) {
+          const aMsg = document.createElement('div');
+          aMsg.className = 'ai-msg ai-msg-veteran';
+          aMsg.innerHTML = `<strong>Desk Head:</strong> ${escapeHtml(answer).replace(/\n/g, '<br>')}`;
+          stream.appendChild(aMsg);
+          stream.scrollTop = stream.scrollHeight;
+        }
+
+        // Record history
+        aiChatHistory.push({ role: 'user', content: question });
+        aiChatHistory.push({ role: 'assistant', content: answer });
+        if (aiChatHistory.length > 8) aiChatHistory = aiChatHistory.slice(-8);
+
+      } catch (err) {
+        console.error('AI chat failed:', err);
+        const typingEl = document.getElementById('aiTypingIndicator');
+        if (typingEl) typingEl.remove();
+        if (stream) {
+          const errDiv = document.createElement('div');
+          errDiv.className = 'ai-msg ai-msg-veteran';
+          errDiv.style.borderColor = 'var(--color-bear)';
+          errDiv.innerHTML = `<strong>Desk Notice:</strong> Communication link delayed. Please try again.`;
+          stream.appendChild(errDiv);
+          stream.scrollTop = stream.scrollHeight;
+        }
       }
     }
 

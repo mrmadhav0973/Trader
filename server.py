@@ -23,7 +23,10 @@ from core.breakout import detect_breakout_confirmation
 from core.confluence import evaluate_master_confluence
 from core.stream import stream_engine
 from core.market_hours import get_market_status, get_asset_category
+from core.ai_veteran import audit_market_setup, ask_veteran_question
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
 import threading
 import time
 
@@ -35,6 +38,9 @@ _ANALYSIS_CACHE_TTL = 120.0  # 120 seconds cache
 
 _SCREENER_CACHE: dict = {}
 _SCREENER_LOCK = threading.Lock()
+
+_AI_AUDIT_CACHE: dict = {}
+_AI_AUDIT_LOCK = threading.Lock()
 
 PRESET_SYMBOLS = [
     "TATAPOWER.NS",
@@ -644,6 +650,89 @@ def run_screener(
         min_score=min_score
     )
     return payload or {"category": cat, "timeframe": timeframe, "scanned_count": 0, "setups": []}
+
+
+class AskVeteranRequest(BaseModel):
+    symbol: str = "TATAPOWER.NS"
+    timeframe: str = "1d"
+    question: str
+    history: Optional[List[Dict[str, str]]] = None
+
+
+@app.get("/api/ai/audit")
+def get_ai_audit(
+    symbol: str = Query("TATAPOWER.NS", description="Ticker symbol"),
+    timeframe: str = Query("1d", description="Timeframe"),
+    force_refresh: bool = Query(False, description="Bypass cache and force fresh AI evaluation")
+):
+    """
+    Get 20-Year Institutional Veteran AI Desk audit on the active asset.
+    Returns desk conviction verdict, Wyckoff breakdown, trap warnings, and precision execution adjustments.
+    """
+    global _AI_AUDIT_CACHE
+    sym = normalize_symbol(symbol)
+    tf = timeframe.lower()
+    cache_key = (sym, tf)
+    now = time.time()
+
+    with _AI_AUDIT_LOCK:
+        if not force_refresh and cache_key in _AI_AUDIT_CACHE:
+            cached_data, cached_ts = _AI_AUDIT_CACHE[cache_key]
+            if (now - cached_ts) < 180.0:
+                return cached_data
+
+    # Obtain current analysis
+    analysis = get_analysis(sym, timeframe=tf, capital=5000.0, risk_pct=0.02)
+    if "error" in analysis:
+        return {"error": analysis["error"]}
+
+    curr_p = float(analysis.get("current_price", 0.0))
+    confluence = analysis.get("master_confluence", {})
+
+    audit_result = audit_market_setup(
+        symbol=sym,
+        timeframe=tf,
+        current_price=curr_p,
+        confluence=confluence
+    )
+
+    with _AI_AUDIT_LOCK:
+        _AI_AUDIT_CACHE[cache_key] = (audit_result, now)
+
+    return audit_result
+
+
+@app.post("/api/ai/ask")
+def post_ai_ask(req: AskVeteranRequest):
+    """
+    Interactive consultation with the 20-Year Institutional Veteran AI Desk.
+    Provides instant, tactical hedge-fund answers grounded in live market structure and confluences.
+    """
+    sym = normalize_symbol(req.symbol)
+    tf = req.timeframe.lower()
+
+    analysis = get_analysis(sym, timeframe=tf, capital=5000.0, risk_pct=0.02)
+    if "error" in analysis:
+        return {"error": analysis["error"], "answer": "Unable to load market data for this asset."}
+
+    curr_p = float(analysis.get("current_price", 0.0))
+    confluence = analysis.get("master_confluence", {})
+
+    answer = ask_veteran_question(
+        symbol=sym,
+        timeframe=tf,
+        current_price=curr_p,
+        confluence=confluence,
+        user_question=req.question,
+        chat_history=req.history
+    )
+
+    return {
+        "answer": answer,
+        "symbol": sym,
+        "timeframe": tf,
+        "timestamp": time.time()
+    }
 
 
 if __name__ == "__main__":
