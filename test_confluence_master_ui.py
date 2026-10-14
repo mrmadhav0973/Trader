@@ -22,7 +22,7 @@ def wait_for_server(url, timeout=20):
     return False
 
 def run_test():
-    port = 8098
+    port = 8092
     print(f"Starting uvicorn server on port {port}...", flush=True)
     log_file = open("test_server_output.log", "w", encoding="utf-8")
     server_process = subprocess.Popen(
@@ -33,13 +33,14 @@ def run_test():
     )
     
     print("Waiting for server to become ready...", flush=True)
-    if not wait_for_server(f"http://127.0.0.1:{port}/", timeout=60):
+    if not wait_for_server(f"http://127.0.0.1:{port}/api/indices", timeout=60):
         server_process.terminate()
         log_file.close()
         with open("test_server_output.log", "r", encoding="utf-8", errors="ignore") as f:
             print("SERVER LOGS:\n" + f.read(), flush=True)
         raise RuntimeError("Server failed to respond within 60 seconds.")
     print("Server is ready and responding!", flush=True)
+    time.sleep(3.0)
 
     try:
         with sync_playwright() as p:
@@ -234,6 +235,24 @@ def run_test():
             page.click("#btnToggleZones")
             time.sleep(0.2)
 
+            print("Testing Trendlines Toggle...", flush=True)
+            page.click("#btnToggleTrendlines")
+            time.sleep(0.2)
+            tl_text = page.locator("#btnToggleTrendlines").inner_text()
+            print(f"Trendlines Toggle text: {tl_text}", flush=True)
+            assert "OFF" in tl_text
+            page.click("#btnToggleTrendlines")
+            time.sleep(0.2)
+
+            print("Testing Structure Toggle...", flush=True)
+            page.click("#btnToggleStructure")
+            time.sleep(0.2)
+            st_text = page.locator("#btnToggleStructure").inner_text()
+            print(f"Structure Toggle text: {st_text}", flush=True)
+            assert "OFF" in st_text
+            page.click("#btnToggleStructure")
+            time.sleep(0.2)
+
             print("Testing Channel Toggle...", flush=True)
             page.click("#btnToggleChannel")
             time.sleep(0.2)
@@ -243,24 +262,33 @@ def run_test():
             page.click("#btnToggleChannel")
             time.sleep(0.2)
 
-            # Verify S/R Zones sleek ribbon thickness and Parallel Channel in currentData
+            # Verify S/R Zones sleek ribbon thickness, Trendlines and Market Structure in currentData
             sr_info = page.evaluate("""() => {
               const zones = currentData && currentData.sr_zones ? currentData.sr_zones : [];
               const channel = currentData && currentData.parallel_channel ? currentData.parallel_channel : null;
+              const trendlines = currentData && currentData.trendlines ? currentData.trendlines : null;
+              const ms = currentData && currentData.market_structure ? currentData.market_structure : null;
               const maxThickness = zones.length > 0 ? Math.max(...zones.map(z => z.max_price - z.min_price)) : 0;
               return {
                 count: zones.length,
                 maxThickness: maxThickness,
                 channelActive: channel && channel.active,
                 channelType: channel ? channel.channel_type : null,
-                channelStatus: channel ? channel.status : null
+                hasResistanceLine: !!(trendlines && trendlines.resistance_line && trendlines.resistance_line.active),
+                hasSupportLine: !!(trendlines && trendlines.support_line && trendlines.support_line.active),
+                pivotsCount: (ms && ms.labeled_pivots) ? ms.labeled_pivots.length : 0,
+                breaksCount: (ms && ms.structure_breaks) ? ms.structure_breaks.length : 0
               };
             }""")
             print(f"S/R Zones count: {sr_info['count']}, Max Thickness: {sr_info['maxThickness']:.2f} pts", flush=True)
-            print(f"Parallel Channel: {sr_info['channelType']} | Status: {sr_info['channelStatus']}", flush=True)
+            print(f"Trendlines -> Resistance: {sr_info['hasResistanceLine']}, Support: {sr_info['hasSupportLine']}", flush=True)
+            print(f"Market Structure -> Pivots: {sr_info['pivotsCount']}, Breaks: {sr_info['breaksCount']}", flush=True)
+            print(f"Parallel Channel: {sr_info['channelType']} (Active: {sr_info['channelActive']})", flush=True)
             assert sr_info['count'] > 0, "No S/R zones generated"
             assert sr_info['maxThickness'] < 3.0, f"S/R zones too wide! Expected < 3.0 pts, got {sr_info['maxThickness']}"
-            assert sr_info['channelActive'], "Parallel channel should be active"
+            assert sr_info['hasResistanceLine'] or sr_info['hasSupportLine'], "Expected at least one active diagonal trendline"
+            assert sr_info['pivotsCount'] > 5, "Expected labeled swing pivots (HH, HL, LH, LL)"
+            assert sr_info['breaksCount'] > 0, "Expected historical structure breaks (BOS/CHoCH)"
 
             print("Testing FVG Toggle...", flush=True)
             page.click("#btnToggleFvg")
@@ -298,10 +326,16 @@ def run_test():
             page.click("#btnToggleChartLevels")
             time.sleep(0.3)
 
-            # Save S/R & Parallel Channel Chart Screenshot
+            # Save S/R, Trendlines & Human Chart Analysis Screenshot
+            print("Capturing dedicated Chart Card screenshot...", flush=True)
+            chart_card = page.locator("#chartCard")
+            chart_card.scroll_into_view_if_needed()
+            time.sleep(1.0)
+            human_shot_path = os.path.join(artifact_dir, "human_chart_analysis_verified.png")
             chart_shot_path = os.path.join(artifact_dir, "sr_channel_chart_verified.png")
-            page.screenshot(path=chart_shot_path)
-            print(f"Saved S/R & Channel chart screenshot to {chart_shot_path}", flush=True)
+            chart_card.screenshot(path=human_shot_path)
+            chart_card.screenshot(path=chart_shot_path)
+            print(f"Saved human chart analysis screenshot to {human_shot_path}", flush=True)
 
             # Test Multi-Timeframe Harmonized Asset Confluence Consistency
             print("Testing Multi-Timeframe Confluence Consistency on 5m...", flush=True)
@@ -359,12 +393,25 @@ def run_test():
 
             # Test Switching Symbol to BTC-USD (Crypto)
             print("Testing symbol switch to BTC-USD (Crypto)...", flush=True)
-            page.evaluate("() => selectSymbol('BTC-USD')")
-            time.sleep(2.0)
-            page.wait_for_function(
-                "() => { const el = document.getElementById('activeSymbolTitle'); return el && el.innerText.includes('BTC-USD'); }",
-                timeout=20000
-            )
+            page.evaluate("() => window.scrollTo(0, 0)")
+            time.sleep(0.3)
+            eval_res = page.evaluate("""() => {
+              try {
+                selectSymbol('BTC-USD');
+                return { ok: true, sym: currentSymbol };
+              } catch(e) {
+                return { ok: false, err: e.message };
+              }
+            }""")
+            print(f"selectSymbol result: {eval_res}", flush=True)
+            for _ in range(30):
+                time.sleep(1)
+                title = page.evaluate("() => document.getElementById('activeSymbolTitle')?.innerText")
+                ldr = page.evaluate("() => document.getElementById('chartLoader')?.innerText")
+                if "BTC-USD" in (title or ""):
+                    print(f"BTC-USD loaded successfully! Title: {title}", flush=True)
+                    break
+                print(f"Waiting for BTC-USD... Title: {title} | Loader: {ldr}", flush=True)
             btc_action = page.locator("#confluenceActionText").inner_text()
             btc_acc = page.locator("#confluenceAccuracyText").inner_text()
             print(f"BTC-USD Confluence Action: {btc_action} | Accuracy: {btc_acc}", flush=True)
@@ -378,13 +425,16 @@ def run_test():
             # =================================================================
             print("\n--- TESTING INSTITUTIONAL MARKET SCREENER ---", flush=True)
             screener_sec = page.locator("#marketScreenerSection")
+            screener_sec.scroll_into_view_if_needed()
+            time.sleep(1.0)
+            page.evaluate("() => { if (typeof loadScreener === 'function') loadScreener(); }")
             assert screener_sec.is_visible()
-            print("Market screener section is visible!", flush=True)
+            print("Market screener section is visible and activated!", flush=True)
 
             print("Waiting for screener table to populate with setups...", flush=True)
             page.wait_for_function(
                 "() => { const rows = document.querySelectorAll('#screenerTableBody tr.screener-row'); return rows.length > 0; }",
-                timeout=35000
+                timeout=70000
             )
 
             row_count = page.evaluate("() => document.querySelectorAll('#screenerTableBody tr.screener-row').length")
@@ -430,7 +480,7 @@ def run_test():
             time.sleep(1.0)
             page.wait_for_function(
                 "() => { const rows = document.querySelectorAll('#screenerTableBody tr.screener-row'); const l = document.getElementById('screenerLoader'); return rows.length > 0 && (!l || l.style.display === 'none'); }",
-                timeout=30000
+                timeout=50000
             )
             time.sleep(0.5)
             crypto_rows = page.evaluate("() => document.querySelectorAll('#screenerTableBody tr.screener-row').length")

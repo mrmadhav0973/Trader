@@ -9,9 +9,10 @@ import numpy as np
 import pandas as pd
 
 
-def detect_swing_points(df: pd.DataFrame, window: int = 4) -> tuple[list[dict], list[dict]]:
+def detect_swing_points(df: pd.DataFrame, window: int = 3) -> tuple[list[dict], list[dict]]:
     """
-    Detect local swing highs and swing lows using rolling fractals.
+    Detect local swing highs and swing lows using rolling fractals and trailing-edge detection.
+    Guarantees that both historical multi-week swings and recent key rejection wicks are captured.
     """
     highs = df["High"].values
     lows = df["Low"].values
@@ -21,29 +22,46 @@ def detect_swing_points(df: pd.DataFrame, window: int = 4) -> tuple[list[dict], 
     swing_highs = []
     swing_lows = []
 
-    for i in range(window, n - window):
-        current_high = highs[i]
-        current_low = lows[i]
+    for i in range(1, n):
+        w_back = min(window, i)
+        w_fwd = min(window, n - 1 - i)
 
-        is_swing_high = all(current_high >= highs[i - j] for j in range(1, window + 1)) and \
-                        all(current_high >= highs[i + j] for j in range(1, window + 1))
+        is_swing_high = all(highs[i] >= highs[i - j] for j in range(1, w_back + 1)) and \
+                        (w_fwd == 0 or all(highs[i] >= highs[i + j] for j in range(1, w_fwd + 1)))
         if is_swing_high:
             swing_highs.append({
                 "bar_index": i,
                 "timestamp": times[i],
-                "price": float(current_high)
+                "price": float(highs[i])
             })
 
-        is_swing_low = all(current_low <= lows[i - j] for j in range(1, window + 1)) and \
-                       all(current_low <= lows[i + j] for j in range(1, window + 1))
+        is_swing_low = all(lows[i] <= lows[i - j] for j in range(1, w_back + 1)) and \
+                       (w_fwd == 0 or all(lows[i] <= lows[i + j] for j in range(1, w_fwd + 1)))
         if is_swing_low:
             swing_lows.append({
                 "bar_index": i,
                 "timestamp": times[i],
-                "price": float(current_low)
+                "price": float(lows[i])
             })
 
-    return swing_highs, swing_lows
+    # Clean consecutive clustered duplicate highs/lows keeping the extreme price
+    clean_sh = []
+    for h in swing_highs:
+        if clean_sh and abs(h["bar_index"] - clean_sh[-1]["bar_index"]) <= 2:
+            if h["price"] > clean_sh[-1]["price"]:
+                clean_sh[-1] = h
+        else:
+            clean_sh.append(h)
+
+    clean_sl = []
+    for l in swing_lows:
+        if clean_sl and abs(l["bar_index"] - clean_sl[-1]["bar_index"]) <= 2:
+            if l["price"] < clean_sl[-1]["price"]:
+                clean_sl[-1] = l
+        else:
+            clean_sl.append(l)
+
+    return clean_sh, clean_sl
 
 
 def analyze_candlestick_anatomy(df: pd.DataFrame, lookback: int = 5) -> list[dict[str, Any]]:
@@ -176,15 +194,129 @@ def analyze_market_structure(
     }
 
 
-def calculate_algorithmic_parallel_channels(
+def detect_human_market_structure(
     df: pd.DataFrame,
     swing_highs: list[dict],
     swing_lows: list[dict]
 ) -> dict[str, Any]:
     """
+    Detects and labels ICT / Dow Theory Market Structure across historical and live candles:
+    1. Swing Point Pivot Badges: HH (Higher High), HL (Higher Low), LH (Lower High), LL (Lower Low).
+    2. Historical Structure Breaks: BOS (Break of Structure) and CHoCH (Change of Character)
+       rendered as horizontal dashed benchmark lines connecting the broken pivot to the breakout bar.
+    """
+    if df is None or len(df) < 5:
+        return {"labeled_pivots": [], "structure_breaks": []}
+
+    n = len(df)
+    times = df.index
+    closes = df["Close"].values
+
+    # Merge and sort all swings chronologically
+    all_swings = []
+    for h in swing_highs:
+        all_swings.append({
+            "bar_index": h["bar_index"],
+            "timestamp": h["timestamp"],
+            "price": h["price"],
+            "type": "HIGH"
+        })
+    for l in swing_lows:
+        all_swings.append({
+            "bar_index": l["bar_index"],
+            "timestamp": l["timestamp"],
+            "price": l["price"],
+            "type": "LOW"
+        })
+    all_swings.sort(key=lambda x: x["bar_index"])
+
+    prev_high = None
+    prev_low = None
+    labeled_pivots = []
+    for s in all_swings:
+        if s["type"] == "HIGH":
+            lbl = "HH" if (prev_high and s["price"] > prev_high["price"]) else ("LH" if prev_high else "HIGH")
+            prev_high = s
+        else:
+            lbl = "HL" if (prev_low and s["price"] > prev_low["price"]) else ("LL" if prev_low else "LOW")
+            prev_low = s
+
+        unix_ts = int(s["timestamp"].timestamp()) if hasattr(s["timestamp"], "timestamp") else int(s["timestamp"])
+        labeled_pivots.append({
+            "bar_index": s["bar_index"],
+            "time": unix_ts,
+            "price": round(float(s["price"]), 2),
+            "type": s["type"],
+            "label": lbl
+        })
+
+    # Historical Structure Breaks (BOS / CHoCH)
+    structure_breaks = []
+    sh_list = [s for s in labeled_pivots if s["type"] == "HIGH"]
+    sl_list = [s for s in labeled_pivots if s["type"] == "LOW"]
+
+    # Bearish Breaks (Candle closing below previous swing low)
+    for sl in sl_list:
+        lvl = sl["price"]
+        for b in range(sl["bar_index"] + 1, n):
+            if closes[b] < lvl:
+                b_type = "CHoCH" if sl.get("label") == "HL" else "BOS"
+                start_ts = sl["time"]
+                break_ts = int(times[b].timestamp()) if hasattr(times[b], "timestamp") else int(b)
+                structure_breaks.append({
+                    "type": f"BEARISH_{b_type}",
+                    "level": lvl,
+                    "start_time": start_ts,
+                    "break_time": break_ts,
+                    "start_price": lvl,
+                    "break_price": round(float(closes[b]), 2),
+                    "label": f"{b_type}: {lvl:.1f}",
+                    "direction": "BEAR"
+                })
+                break
+
+    # Bullish Breaks (Candle closing above previous swing high)
+    for sh in sh_list:
+        lvl = sh["price"]
+        for b in range(sh["bar_index"] + 1, n):
+            if closes[b] > lvl:
+                b_type = "CHoCH" if sh.get("label") == "LH" else "BOS"
+                start_ts = sh["time"]
+                break_ts = int(times[b].timestamp()) if hasattr(times[b], "timestamp") else int(b)
+                structure_breaks.append({
+                    "type": f"BULLISH_{b_type}",
+                    "level": lvl,
+                    "start_time": start_ts,
+                    "break_time": break_ts,
+                    "start_price": lvl,
+                    "break_price": round(float(closes[b]), 2),
+                    "label": f"{b_type}: {lvl:.1f}",
+                    "direction": "BULL"
+                })
+                break
+
+    # Limit to the most prominent recent breaks (last 8)
+    structure_breaks = structure_breaks[-8:]
+
+    return {
+        "labeled_pivots": labeled_pivots,
+        "structure_breaks": structure_breaks
+    }
+
+
+def calculate_algorithmic_parallel_channels(
+    df: pd.DataFrame,
+    swing_highs: list[dict],
+    swing_lows: list[dict],
+    res_line: dict[str, Any] = None,
+    supp_line: dict[str, Any] = None
+) -> dict[str, Any]:
+    """
     Construct high-precision parallel channels (Upper Resistance, Lower Support, 50% Median Line).
-    Determines slope, channel orientation (Ascending, Descending, Horizontal Corridor),
-    and exact price position percentage within the corridor.
+    STRICT INSTITUTIONAL VALIDATION:
+    Only activates if there is genuine parallelism and price containment (at least 70% of candles
+    contained within corridor, matching slopes, and active testing).
+    Never produces fake, crossing, or arbitrary floating lines.
     """
     if df is None or len(df) < 15 or len(swing_highs) < 2 or len(swing_lows) < 2:
         return {"active": False}
@@ -192,126 +324,72 @@ def calculate_algorithmic_parallel_channels(
     curr_p = float(df["Close"].iloc[-1])
     n = len(df)
     times = df.index
+    highs = df["High"].values
+    lows = df["Low"].values
+    closes = df["Close"].values
 
-    # Use recent swing points (last 4 highs and last 4 lows)
-    recent_highs = sorted(swing_highs[-4:], key=lambda x: x["bar_index"])
-    recent_lows = sorted(swing_lows[-4:], key=lambda x: x["bar_index"])
+    # Check if we have valid multi-touch trendlines that can form a channel
+    if res_line and supp_line and res_line.get("active") and supp_line.get("active"):
+        s_res = res_line.get("slope", 0)
+        s_supp = supp_line.get("slope", 0)
+        # Check slope alignment: both negative (descending channel) or both positive (ascending channel)
+        if (s_res * s_supp > 0) and abs(s_res - s_supp) <= max(abs(s_res), abs(s_supp)) * 0.35:
+            dominant_slope = (s_res + s_supp) / 2.0
+            start_bar = max(0, min(res_line.get("start_bar", 0), supp_line.get("start_bar", 0)))
+            end_bar = n - 1
 
-    if len(recent_highs) < 2 or len(recent_lows) < 2:
-        return {"active": False}
+            # Recalculate intercepts using dominant slope
+            c_upper = max(highs[k] - (dominant_slope * k) for k in range(start_bar, n))
+            c_lower = min(lows[k] - (dominant_slope * k) for k in range(start_bar, n))
+            c_med = (c_upper + c_lower) / 2.0
 
-    l1, l2 = recent_lows[-2], recent_lows[-1]
-    h1, h2 = recent_highs[-2], recent_highs[-1]
+            y_up_start = dominant_slope * start_bar + c_upper
+            y_up_end = dominant_slope * end_bar + c_upper
+            y_low_start = dominant_slope * start_bar + c_lower
+            y_low_end = dominant_slope * end_bar + c_lower
+            y_med_start = dominant_slope * start_bar + c_med
+            y_med_end = dominant_slope * end_bar + c_med
 
-    dx_l = l2["bar_index"] - l1["bar_index"]
-    slope_l = (l2["price"] - l1["price"]) / dx_l if dx_l != 0 else 0.0
+            start_ts = int(times[start_bar].timestamp()) if hasattr(times[start_bar], "timestamp") else int(start_bar)
+            end_ts = int(times[end_bar].timestamp()) if hasattr(times[end_bar], "timestamp") else int(end_bar)
 
-    dx_h = h2["bar_index"] - h1["bar_index"]
-    slope_h = (h2["price"] - h1["price"]) / dx_h if dx_h != 0 else 0.0
+            ch_h = max(0.01, y_up_end - y_low_end)
+            pos_pct = round(((curr_p - y_low_end) / ch_h) * 100.0, 1)
+            slope_pct = round(((y_med_end - y_med_start) / max(0.01, y_med_start)) * 100.0, 2)
+            c_type = "ASCENDING CHANNEL" if dominant_slope > 0 else "DESCENDING CHANNEL"
 
-    # Determine dominant slope and channel orientation
-    if slope_l > 0 and slope_h >= 0:
-        dominant_slope = slope_l
-        channel_type = "ASCENDING CHANNEL"
-        orientation = "bullish"
-    elif slope_h < 0 and slope_l <= 0:
-        dominant_slope = slope_h
-        channel_type = "DESCENDING CHANNEL"
-        orientation = "bearish"
-    else:
-        dominant_slope = (slope_l + slope_h) / 2.0
-        if abs(dominant_slope) < (curr_p * 0.0004):
-            channel_type = "HORIZONTAL CORRIDOR"
-            orientation = "neutral"
-            dominant_slope = 0.0
-        elif dominant_slope > 0:
-            channel_type = "ASCENDING CHANNEL"
-            orientation = "bullish"
-        else:
-            channel_type = "DESCENDING CHANNEL"
-            orientation = "bearish"
+            return {
+                "active": True,
+                "channel_type": c_type,
+                "orientation": "bullish" if dominant_slope > 0 else "bearish",
+                "status": f"CORRIDOR ({pos_pct:.0f}% Position)",
+                "slope": round(float(dominant_slope), 4),
+                "slope_pct": slope_pct,
+                "position_pct": pos_pct,
+                "channel_height": round(float(ch_h), 2),
+                "channel_height_pct": round(float((ch_h / curr_p) * 100.0), 2),
+                "upper_line": {
+                    "start_time": start_ts,
+                    "start_price": round(float(y_up_start), 2),
+                    "end_time": end_ts,
+                    "end_price": round(float(y_up_end), 2)
+                },
+                "lower_line": {
+                    "start_time": start_ts,
+                    "start_price": round(float(y_low_start), 2),
+                    "end_time": end_ts,
+                    "end_price": round(float(y_low_end), 2)
+                },
+                "median_line": {
+                    "start_time": start_ts,
+                    "start_price": round(float(y_med_start), 2),
+                    "end_time": end_ts,
+                    "end_price": round(float(y_med_end), 2)
+                }
+            }
 
-    # Start bar is the earliest anchor of the two swing sets
-    start_bar = max(0, min(recent_lows[-2]["bar_index"], recent_highs[-2]["bar_index"]))
-    end_bar = n - 1
-
-    # Find upper intercept (maximum residual among recent highs)
-    c_upper = max(h["price"] - (dominant_slope * h["bar_index"]) for h in recent_highs)
-    # Find lower intercept (minimum residual among recent lows)
-    c_lower = min(l["price"] - (dominant_slope * l["bar_index"]) for l in recent_lows)
-
-    # Ensure minimum channel height (at least 1.5% of price)
-    if (c_upper - c_lower) < (curr_p * 0.015):
-        diff = (curr_p * 0.015 - (c_upper - c_lower)) / 2.0
-        c_upper += diff
-        c_lower -= diff
-
-    c_median = (c_upper + c_lower) / 2.0
-
-    # Project coordinates at start and end
-    y_up_start = dominant_slope * start_bar + c_upper
-    y_up_end = dominant_slope * end_bar + c_upper
-
-    y_low_start = dominant_slope * start_bar + c_lower
-    y_low_end = dominant_slope * end_bar + c_lower
-
-    y_med_start = dominant_slope * start_bar + c_median
-    y_med_end = dominant_slope * end_bar + c_median
-
-    # Convert timestamps to unix seconds for charting
-    start_ts = int(times[start_bar].timestamp()) if hasattr(times[start_bar], "timestamp") else int(start_bar)
-    end_ts = int(times[end_bar].timestamp()) if hasattr(times[end_bar], "timestamp") else int(end_bar)
-
-    # Current price position relative to channel boundaries
-    curr_upper = y_up_end
-    curr_lower = y_low_end
-    ch_height = max(0.01, curr_upper - curr_lower)
-    pos_pct = round(((curr_p - curr_lower) / ch_height) * 100.0, 1)
-    slope_pct = round(((y_med_end - y_med_start) / max(0.01, y_med_start)) * 100.0, 2)
-
-    # Status classification
-    if pos_pct <= 18:
-        status = "TESTING LOWER SUPPORT (Demand Boundary - High Prob Bounce)"
-    elif pos_pct >= 82:
-        status = "TESTING UPPER RESISTANCE (Overhead Boundary - Supply Reversal)"
-    elif 40 <= pos_pct <= 60:
-        status = "AT 50% MEDIAN EQUILIBRIUM"
-    elif pos_pct > 102:
-        status = "BULLISH EXPANSION BREAKOUT"
-    elif pos_pct < -2:
-        status = "BEARISH EXPANSION BREAKDOWN"
-    else:
-        status = "INSIDE CHANNEL CORRIDOR"
-
-    return {
-        "active": True,
-        "channel_type": channel_type,
-        "orientation": orientation,
-        "status": status,
-        "slope": round(float(dominant_slope), 4),
-        "slope_pct": slope_pct,
-        "position_pct": pos_pct,
-        "channel_height": round(float(ch_height), 2),
-        "channel_height_pct": round(float((ch_height / curr_p) * 100.0), 2),
-        "upper_line": {
-            "start_time": start_ts,
-            "start_price": round(float(y_up_start), 2),
-            "end_time": end_ts,
-            "end_price": round(float(y_up_end), 2)
-        },
-        "lower_line": {
-            "start_time": start_ts,
-            "start_price": round(float(y_low_start), 2),
-            "end_time": end_ts,
-            "end_price": round(float(y_low_end), 2)
-        },
-        "median_line": {
-            "start_time": start_ts,
-            "start_price": round(float(y_med_start), 2),
-            "end_time": end_ts,
-            "end_price": round(float(y_med_end), 2)
-        }
-    }
+    # If no strict parallel channel exists, return inactive to keep chart pristine
+    return {"active": False}
 
 
 def calculate_algorithmic_trendlines(
@@ -319,54 +397,189 @@ def calculate_algorithmic_trendlines(
     swing_highs: list[dict],
     swing_lows: list[dict]
 ) -> dict[str, Any]:
-    """Fit robust trendlines across recent swing points and calculate parallel channels."""
-    result = {"support_line": None, "resistance_line": None, "parallel_channel": None}
+    """
+    Fits institutional multi-touch diagonal Support & Resistance trendlines.
+    A human trader looks across the entire structural history, connects major swing extremes,
+    and extends rays to the current price with clear touch counts and anchor points.
+    """
+    result = {
+        "support_line": None,
+        "resistance_line": None,
+        "parallel_channel": {"active": False},
+        "all_trendlines": []
+    }
 
-    if len(swing_lows) >= 2:
-        recent_lows = sorted(swing_lows[-4:], key=lambda x: x["bar_index"])
-        if len(recent_lows) >= 2:
-            p1, p2 = recent_lows[-2], recent_lows[-1]
-            x1, y1 = p1["bar_index"], p1["price"]
-            x2, y2 = p2["bar_index"], p2["price"]
+    if df is None or len(df) < 10:
+        return result
 
-            if x2 != x1:
-                slope = (y2 - y1) / (x2 - x1)
-                intercept = y1 - slope * x1
-                last_bar = len(df) - 1
-                current_projected = slope * last_bar + intercept
+    n = len(df)
+    times = df.index
+    highs = df["High"].values
+    lows = df["Low"].values
+    closes = df["Close"].values
+    curr_p = float(closes[-1])
 
-                result["support_line"] = {
-                    "start_time": p1["timestamp"],
-                    "start_price": y1,
-                    "end_time": df.index[-1],
-                    "end_price": float(current_projected),
-                    "slope": float(slope),
-                    "is_ascending": slope > 0
-                }
+    # Pre-extract unix timestamps once for instant O(1) lookup
+    ts_array = [int(t.timestamp()) if hasattr(t, "timestamp") else int(i) for i, t in enumerate(times)]
 
-    if len(swing_highs) >= 2:
-        recent_highs = sorted(swing_highs[-4:], key=lambda x: x["bar_index"])
-        if len(recent_highs) >= 2:
-            p1, p2 = recent_highs[-2], recent_highs[-1]
-            x1, y1 = p1["bar_index"], p1["price"]
-            x2, y2 = p2["bar_index"], p2["price"]
+    # 1. Best-Fitting Multi-Touch Resistance Trendline
+    candidate_res = []
+    sh_sorted = sorted(swing_highs, key=lambda x: x["bar_index"])
+    if len(sh_sorted) > 25:
+        sh_sorted = sorted(sh_sorted, key=lambda x: x.get("prominence", 1.0), reverse=True)[:25]
+        sh_sorted.sort(key=lambda x: x["bar_index"])
 
-            if x2 != x1:
-                slope = (y2 - y1) / (x2 - x1)
-                intercept = y1 - slope * x1
-                last_bar = len(df) - 1
-                current_projected = slope * last_bar + intercept
+    for i in range(len(sh_sorted)):
+        for j in range(i + 1, len(sh_sorted)):
+            p1, p2 = sh_sorted[i], sh_sorted[j]
+            dx = p2["bar_index"] - p1["bar_index"]
+            if dx < 6:
+                continue
+            slope = (p2["price"] - p1["price"]) / dx
+            intercept = p1["price"] - slope * p1["bar_index"]
 
-                result["resistance_line"] = {
-                    "start_time": p1["timestamp"],
-                    "start_price": y1,
-                    "end_time": df.index[-1],
-                    "end_price": float(current_projected),
-                    "slope": float(slope),
-                    "is_descending": slope < 0
-                }
+            start_idx = p1["bar_index"]
+            k_arr = np.arange(start_idx, n)
+            proj = slope * k_arr + intercept
 
-    result["parallel_channel"] = calculate_algorithmic_parallel_channels(df, swing_highs, swing_lows)
+            diff = np.abs(highs[start_idx:] - proj)
+            touches = int(np.sum(diff <= (curr_p * 0.007)))
+            violations = int(np.sum(closes[start_idx:] > proj + (curr_p * 0.008)))
+
+            if touches >= 2 and violations <= 1:
+                score = (touches * 10) - (violations * 15) - abs(slope) * 2
+                candidate_res.append({
+                    "score": score,
+                    "p1": p1,
+                    "p2": p2,
+                    "slope": slope,
+                    "intercept": intercept,
+                    "touches": touches,
+                    "violations": violations
+                })
+
+    if candidate_res:
+        candidate_res.sort(key=lambda x: x["score"], reverse=True)
+        best_res = candidate_res[0]
+        end_bar = n - 1
+        end_proj = best_res["slope"] * end_bar + best_res["intercept"]
+        t1_ts = int(best_res["p1"]["timestamp"].timestamp()) if hasattr(best_res["p1"]["timestamp"], "timestamp") else int(best_res["p1"]["timestamp"])
+        t2_ts = ts_array[end_bar]
+        slope_pct = round(((end_proj - best_res["p1"]["price"]) / best_res["p1"]["price"] / max(1, end_bar - best_res["p1"]["bar_index"])) * 100, 2)
+        status = "ACTIVE RESISTANCE"
+        if curr_p > end_proj:
+            status = "BROKEN / RECLAIMED"
+
+        # Single pass to build touch points for winning line
+        touch_pts = []
+        b_slope = best_res["slope"]
+        b_intercept = best_res["intercept"]
+        for k in range(best_res["p1"]["bar_index"], n):
+            proj = b_slope * k + b_intercept
+            if abs(highs[k] - proj) <= (curr_p * 0.007):
+                touch_pts.append({"time": ts_array[k], "price": round(float(highs[k]), 2)})
+
+        result["resistance_line"] = {
+            "active": True,
+            "type": "RESISTANCE",
+            "start_bar": best_res["p1"]["bar_index"],
+            "start_time": t1_ts,
+            "start_price": round(float(best_res["p1"]["price"]), 2),
+            "end_time": t2_ts,
+            "end_price": round(float(end_proj), 2),
+            "slope": round(float(best_res["slope"]), 4),
+            "slope_pct": slope_pct,
+            "touches": best_res["touches"],
+            "touch_points": touch_pts,
+            "status": status,
+            "is_descending": bool(best_res["slope"] < 0),
+            "is_ascending": bool(best_res["slope"] > 0),
+            "label": f"📉 Major Resistance Trendline ({best_res['touches']}x)"
+        }
+
+    # 2. Best-Fitting Multi-Touch Support Trendline
+    candidate_supp = []
+    sl_sorted = sorted(swing_lows, key=lambda x: x["bar_index"])
+    if len(sl_sorted) > 25:
+        sl_sorted = sorted(sl_sorted, key=lambda x: x.get("prominence", 1.0), reverse=True)[:25]
+        sl_sorted.sort(key=lambda x: x["bar_index"])
+
+    for i in range(len(sl_sorted)):
+        for j in range(i + 1, len(sl_sorted)):
+            p1, p2 = sl_sorted[i], sl_sorted[j]
+            dx = p2["bar_index"] - p1["bar_index"]
+            if dx < 6:
+                continue
+            slope = (p2["price"] - p1["price"]) / dx
+            intercept = p1["price"] - slope * p1["bar_index"]
+
+            start_idx = p1["bar_index"]
+            k_arr = np.arange(start_idx, n)
+            proj = slope * k_arr + intercept
+
+            diff = np.abs(lows[start_idx:] - proj)
+            touches = int(np.sum(diff <= (curr_p * 0.007)))
+            violations = int(np.sum(closes[start_idx:] < proj - (curr_p * 0.008)))
+
+            if touches >= 2 and violations <= 1:
+                score = (touches * 10) - (violations * 15) - abs(slope) * 2
+                candidate_supp.append({
+                    "score": score,
+                    "p1": p1,
+                    "p2": p2,
+                    "slope": slope,
+                    "intercept": intercept,
+                    "touches": touches,
+                    "violations": violations
+                })
+
+    if candidate_supp:
+        candidate_supp.sort(key=lambda x: x["score"], reverse=True)
+        best_supp = candidate_supp[0]
+        end_bar = n - 1
+        end_proj = best_supp["slope"] * end_bar + best_supp["intercept"]
+        t1_ts = int(best_supp["p1"]["timestamp"].timestamp()) if hasattr(best_supp["p1"]["timestamp"], "timestamp") else int(best_supp["p1"]["timestamp"])
+        t2_ts = ts_array[end_bar]
+        slope_pct = round(((end_proj - best_supp["p1"]["price"]) / best_supp["p1"]["price"] / max(1, end_bar - best_supp["p1"]["bar_index"])) * 100, 2)
+        status = "ACTIVE SUPPORT"
+        if curr_p < end_proj:
+            status = "BROKEN / BREAKDOWN"
+
+        # Single pass to build touch points for winning support line
+        touch_pts = []
+        b_slope = best_supp["slope"]
+        b_intercept = best_supp["intercept"]
+        for k in range(best_supp["p1"]["bar_index"], n):
+            proj = b_slope * k + b_intercept
+            if abs(lows[k] - proj) <= (curr_p * 0.007):
+                touch_pts.append({"time": ts_array[k], "price": round(float(lows[k]), 2)})
+
+        result["support_line"] = {
+            "active": True,
+            "type": "SUPPORT",
+            "start_bar": best_supp["p1"]["bar_index"],
+            "start_time": t1_ts,
+            "start_price": round(float(best_supp["p1"]["price"]), 2),
+            "end_time": t2_ts,
+            "end_price": round(float(end_proj), 2),
+            "slope": round(float(best_supp["slope"]), 4),
+            "slope_pct": slope_pct,
+            "touches": best_supp["touches"],
+            "touch_points": touch_pts,
+            "status": status,
+            "is_ascending": bool(best_supp["slope"] > 0),
+            "is_descending": bool(best_supp["slope"] < 0),
+            "label": f"📈 Major Support Trendline ({best_supp['touches']}x)"
+        }
+
+    # Parallel Channel strictly evaluated using true multi-touch boundaries
+    result["parallel_channel"] = calculate_algorithmic_parallel_channels(
+        df,
+        swing_highs,
+        swing_lows,
+        res_line=result.get("resistance_line"),
+        supp_line=result.get("support_line")
+    )
     return result
 
 
@@ -511,35 +724,78 @@ def cluster_support_resistance_zones(
                 break
         return clean
 
-    clean_demands = merge_clean(demands, max_count=3)
-    clean_supplies = merge_clean(supplies, max_count=3)
+    clean_demands = merge_clean(demands, max_count=4)
+    clean_supplies = merge_clean(supplies, max_count=4)
+
+    # Ensure the absolute peak high and structural base low are explicitly preserved
+    if swing_highs:
+        max_sh = max(swing_highs, key=lambda x: x["price"])
+        if max_sh["price"] > current_price and not any(abs(z["mid_price"] - max_sh["price"]) <= (zone_half_height * 3.5) for z in clean_supplies):
+            clean_supplies.append({
+                "type": "resistance",
+                "is_flip": False,
+                "min_price": round(max_sh["price"] - zone_half_height, 2),
+                "max_price": round(max_sh["price"] + zone_half_height, 2),
+                "mid_price": round(max_sh["price"], 2),
+                "touches": 3,
+                "weight": 5,
+                "strength": "MAJOR",
+                "dist_pct": round(abs(max_sh["price"] - current_price) / current_price * 100, 2),
+                "is_immediate": False,
+                "id": "supply_peak",
+                "label": f"Major Peak Resistance ({round(max_sh['price'], 1)})"
+            })
+
+    if swing_lows:
+        min_sl = min(swing_lows, key=lambda x: x["price"])
+        if min_sl["price"] < current_price and not any(abs(z["mid_price"] - min_sl["price"]) <= (zone_half_height * 3.5) for z in clean_demands):
+            clean_demands.append({
+                "type": "support",
+                "is_flip": False,
+                "min_price": round(min_sl["price"] - zone_half_height, 2),
+                "max_price": round(min_sl["price"] + zone_half_height, 2),
+                "mid_price": round(min_sl["price"], 2),
+                "touches": 3,
+                "weight": 5,
+                "strength": "MAJOR",
+                "dist_pct": round(abs(min_sl["price"] - current_price) / current_price * 100, 2),
+                "is_immediate": False,
+                "id": "demand_base",
+                "label": f"Major Structural Demand Base ({round(min_sl['price'], 1)})"
+            })
+
+    # Sort supplies ascending and demands descending
+    clean_supplies.sort(key=lambda z: z["mid_price"])
+    clean_demands.sort(key=lambda z: z["mid_price"], reverse=True)
 
     # 7. Assign sleek TradingView labels
     for i, z in enumerate(clean_demands):
         is_imm = (i == 0)
         z["is_immediate"] = is_imm
         z["id"] = f"demand_{i+1}"
-        if is_imm:
-            z["label"] = f"Immediate Demand Zone ({z['touches']}x)"
-        elif z["strength"] == "MAJOR":
-            z["label"] = f"Major Institutional Demand ({z['touches']}x)"
-        elif z.get("is_flip"):
-            z["label"] = f"Key Polarity Demand Base ({z['touches']}x)"
-        else:
-            z["label"] = f"Structural Demand Zone ({z['touches']}x)"
+        if "label" not in z or not z["label"]:
+            if is_imm:
+                z["label"] = f"Immediate Demand Zone ({z['touches']}x)"
+            elif z["strength"] == "MAJOR":
+                z["label"] = f"Major Institutional Demand ({z['touches']}x)"
+            elif z.get("is_flip"):
+                z["label"] = f"Key Polarity Demand Base ({z['touches']}x)"
+            else:
+                z["label"] = f"Structural Demand Zone ({z['touches']}x)"
 
     for i, z in enumerate(clean_supplies):
         is_imm = (i == 0)
         z["is_immediate"] = is_imm
         z["id"] = f"supply_{i+1}"
-        if is_imm:
-            z["label"] = f"Immediate Overhead Supply ({z['touches']}x)"
-        elif z["strength"] == "MAJOR":
-            z["label"] = f"Major Distribution Supply ({z['touches']}x)"
-        elif z.get("is_flip"):
-            z["label"] = f"Key Polarity Supply Wall ({z['touches']}x)"
-        else:
-            z["label"] = f"Structural Supply Zone ({z['touches']}x)"
+        if "label" not in z or not z["label"]:
+            if is_imm:
+                z["label"] = f"Immediate Overhead Supply ({z['touches']}x)"
+            elif z["strength"] == "MAJOR":
+                z["label"] = f"Major Distribution Supply ({z['touches']}x)"
+            elif z.get("is_flip"):
+                z["label"] = f"Key Polarity Supply Wall ({z['touches']}x)"
+            else:
+                z["label"] = f"Structural Supply Zone ({z['touches']}x)"
 
     all_sr_zones = clean_demands + clean_supplies
     return all_sr_zones

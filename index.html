@@ -2360,6 +2360,8 @@
         <!-- Floating Controls Toolbar -->
         <div class="tv-floating-toolbar">
           <button class="tv-btn active" id="btnToggleZones" onclick="toggleZones()" title="Toggle S/R Demand & Supply Thick Line Zones">🛡️ Zones: ON</button>
+          <button class="tv-btn active" id="btnToggleTrendlines" onclick="toggleTrendlines()" title="Toggle Major Multi-Touch Support & Resistance Trendlines">📉 Trendlines: ON</button>
+          <button class="tv-btn active" id="btnToggleStructure" onclick="toggleStructure()" title="Toggle Market Structure Pivots (HH, HL, LH, LL) & BOS/CHoCH Breaks">🏷️ Structure: ON</button>
           <button class="tv-btn active" id="btnToggleChannel" onclick="toggleChannel()" title="Toggle Parallel Trendline Channels & Corridors">📐 Channel: ON</button>
           <button class="tv-btn active" id="btnToggleFvg" onclick="toggleFvg()" title="Toggle Fair Value Gaps (FVG) & 50% CE Imbalance">🧬 FVG: ON</button>
           <button class="tv-btn active" id="btnToggleFib" onclick="toggleFib()" title="Toggle Fibonacci Golden Pocket & OTE (0.618-0.786)">🎯 Fib OTE: ON</button>
@@ -2511,6 +2513,8 @@
     let activeConfTab = 'tabStructure';
     let showChartPriceLines = true;
     let showZones = true;
+    let showTrendlines = true;
+    let showStructure = true;
     let showChannel = true;
     let showFvg = true;
     let showFib = true;
@@ -2615,6 +2619,28 @@
       renderZonesOverlay();
     }
 
+    function toggleTrendlines() {
+      showTrendlines = !showTrendlines;
+      const btn = document.getElementById('btnToggleTrendlines');
+      if (btn) {
+        btn.textContent = `📉 Trendlines: ${showTrendlines ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showTrendlines);
+        btn.classList.toggle('off', !showTrendlines);
+      }
+      renderZonesOverlay();
+    }
+
+    function toggleStructure() {
+      showStructure = !showStructure;
+      const btn = document.getElementById('btnToggleStructure');
+      if (btn) {
+        btn.textContent = `🏷️ Structure: ${showStructure ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showStructure);
+        btn.classList.toggle('off', !showStructure);
+      }
+      renderZonesOverlay();
+    }
+
     function toggleChannel() {
       showChannel = !showChannel;
       const btn = document.getElementById('btnToggleChannel');
@@ -2702,7 +2728,7 @@
     function renderZonesOverlay() {
       const canvas = document.getElementById('tvZonesCanvas');
       const container = document.getElementById('tvChartContainer');
-      if (!canvas || !container || !tvCandleSeries) return;
+      if (!canvas || !container || !tvCandleSeries || !currentData) return;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -2726,22 +2752,35 @@
       const chartPlotWidth = Math.max(0, width - 68);
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
 
+      // Helper: get exact or nearest X coordinate for any historical timestamp
+      function getXForTime(targetTs) {
+        if (!tvChart || !tvChart.timeScale || !targetTs) return null;
+        let coord = tvChart.timeScale().timeToCoordinate(targetTs);
+        if (coord !== null && !isNaN(coord)) return coord;
+        if (currentData && currentData.candles && currentData.candles.length > 0) {
+          const candles = currentData.candles;
+          let closest = candles[0];
+          let minDiff = Math.abs(closest.time - targetTs);
+          for (let i = 1; i < candles.length; i++) {
+            const diff = Math.abs(candles[i].time - targetTs);
+            if (diff < minDiff) {
+              minDiff = diff;
+              closest = candles[i];
+            }
+          }
+          return tvChart.timeScale().timeToCoordinate(closest.time);
+        }
+        return null;
+      }
+
       // 1. Sleek Institutional Support & Resistance Thick Line Zones
       const rawZones = (currentData && currentData.sr_zones && currentData.sr_zones.length > 0)
         ? currentData.sr_zones
         : (currentConfluence && currentConfluence.all_sr_zones ? currentConfluence.all_sr_zones : []);
 
       if (showZones && rawZones && rawZones.length > 0) {
-        // Render top 2 Demands and top 2 Supplies (+ 1 flip) closest to current price for ultra-clean chart
-        const cPrice = (currentData && currentData.current_price) ? currentData.current_price : 0;
-        const dZones = rawZones.filter(z => z.type === 'support' || z.type === 'DEMAND')
-                               .sort((a,b) => Math.abs(a.mid_price - cPrice) - Math.abs(b.mid_price - cPrice))
-                               .slice(0, 2);
-        const sZones = rawZones.filter(z => z.type === 'resistance' || z.type === 'SUPPLY')
-                               .sort((a,b) => Math.abs(a.mid_price - cPrice) - Math.abs(b.mid_price - cPrice))
-                               .slice(0, 2);
-        const flipZones = rawZones.filter(z => (z.is_flip || z.is_sr_flip) && !dZones.includes(z) && !sZones.includes(z)).slice(0, 1);
-        const zonesToRender = [...dZones, ...sZones, ...flipZones];
+        // Render up to 8 key institutional levels across full chart (Range Peaks, Base Demands, S-R Flips, Tested Zones)
+        const zonesToRender = rawZones.slice(0, 8);
 
         zonesToRender.forEach(z => {
           if (!z || isNaN(z.mid_price)) return;
@@ -2837,14 +2876,248 @@
         });
       }
 
-      // 2. Parallel Trendline Channels & Corridors
+      // 2. Diagonal Support & Resistance Multi-Touch Trendlines
+      const trendlines = (currentData && currentData.trendlines)
+        ? currentData.trendlines
+        : (currentConfluence && currentConfluence.trendlines ? currentConfluence.trendlines : null);
+
+      if (showTrendlines && trendlines) {
+        // Resistance Trendline (Red)
+        const resLine = trendlines.resistance_line;
+        if (resLine && resLine.active && resLine.start_time && resLine.end_time) {
+          const rx1 = getXForTime(resLine.start_time);
+          const rx2 = getXForTime(resLine.end_time);
+          const ry1 = tvCandleSeries.priceToCoordinate(resLine.start_price);
+          const ry2 = tvCandleSeries.priceToCoordinate(resLine.end_price);
+
+          if (rx1 !== null && ry1 !== null && rx2 !== null && ry2 !== null && rx2 > rx1) {
+            ctx.save();
+            // Solid 2px Major Resistance Trendline
+            ctx.strokeStyle = '#EF4444';
+            ctx.lineWidth = 2.0;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(rx1, ry1);
+            ctx.lineTo(rx2, ry2);
+            ctx.stroke();
+
+            // Forward Dashed Extension
+            if (rx2 < chartPlotWidth) {
+              const slope = (ry2 - ry1) / (rx2 - rx1);
+              const projX = Math.min(chartPlotWidth, rx2 + 90);
+              const projY = ry2 + slope * (projX - rx2);
+              ctx.strokeStyle = 'rgba(239, 68, 68, 0.40)';
+              ctx.setLineDash([4, 4]);
+              ctx.beginPath();
+              ctx.moveTo(rx2, ry2);
+              ctx.lineTo(projX, projY);
+              ctx.stroke();
+            }
+
+            // Glowing Anchor Rings on Touch Points
+            if (resLine.touch_points && resLine.touch_points.length > 0) {
+              resLine.touch_points.forEach(tp => {
+                const tx = getXForTime(tp.time);
+                const ty = tvCandleSeries.priceToCoordinate(tp.price);
+                if (tx !== null && ty !== null) {
+                  ctx.setLineDash([]);
+                  ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+                  ctx.beginPath();
+                  ctx.arc(tx, ty, 6, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.fillStyle = '#EF4444';
+                  ctx.beginPath();
+                  ctx.arc(tx, ty, 2.5, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              });
+            }
+
+            // Trendline Badge Pill
+            const touchesStr = resLine.touches ? `${resLine.touches}x` : '2x';
+            const rBadge = `📉 RESISTANCE TRENDLINE [${touchesStr}] • ${resLine.status || 'ACTIVE'}`;
+            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            const rTw = ctx.measureText(rBadge).width;
+            const rBadgeH = 15;
+            const rBadgeX = Math.max(14, Math.min(rx2 - rTw - 14, chartPlotWidth - rTw - 14));
+            const rBadgeY = Math.max(10, Math.min(ry2 - 18, height - 20));
+
+            ctx.fillStyle = 'rgba(69, 10, 10, 0.90)';
+            ctx.fillRect(rBadgeX, rBadgeY, rTw + 12, rBadgeH);
+            ctx.strokeStyle = '#EF4444';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(rBadgeX, rBadgeY, rTw + 12, rBadgeH);
+            ctx.fillStyle = '#FECACA';
+            ctx.fillText(rBadge, rBadgeX + 6, rBadgeY + 11);
+            ctx.restore();
+          }
+        }
+
+        // Support Trendline (Green)
+        const suppLine = trendlines.support_line;
+        if (suppLine && suppLine.active && suppLine.start_time && suppLine.end_time) {
+          const sx1 = getXForTime(suppLine.start_time);
+          const sx2 = getXForTime(suppLine.end_time);
+          const sy1 = tvCandleSeries.priceToCoordinate(suppLine.start_price);
+          const sy2 = tvCandleSeries.priceToCoordinate(suppLine.end_price);
+
+          if (sx1 !== null && sy1 !== null && sx2 !== null && sy2 !== null && sx2 > sx1) {
+            ctx.save();
+            // Solid 2px Major Support Trendline
+            ctx.strokeStyle = '#10B981';
+            ctx.lineWidth = 2.0;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(sx1, sy1);
+            ctx.lineTo(sx2, sy2);
+            ctx.stroke();
+
+            // Forward Dashed Extension
+            if (sx2 < chartPlotWidth) {
+              const slope = (sy2 - sy1) / (sx2 - sx1);
+              const projX = Math.min(chartPlotWidth, sx2 + 90);
+              const projY = sy2 + slope * (projX - sx2);
+              ctx.strokeStyle = 'rgba(16, 185, 129, 0.40)';
+              ctx.setLineDash([4, 4]);
+              ctx.beginPath();
+              ctx.moveTo(sx2, sy2);
+              ctx.lineTo(projX, projY);
+              ctx.stroke();
+            }
+
+            // Glowing Anchor Rings on Touch Points
+            if (suppLine.touch_points && suppLine.touch_points.length > 0) {
+              suppLine.touch_points.forEach(tp => {
+                const tx = getXForTime(tp.time);
+                const ty = tvCandleSeries.priceToCoordinate(tp.price);
+                if (tx !== null && ty !== null) {
+                  ctx.setLineDash([]);
+                  ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+                  ctx.beginPath();
+                  ctx.arc(tx, ty, 6, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.fillStyle = '#10B981';
+                  ctx.beginPath();
+                  ctx.arc(tx, ty, 2.5, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              });
+            }
+
+            // Trendline Badge Pill
+            const touchesStr = suppLine.touches ? `${suppLine.touches}x` : '2x';
+            const sBadge = `📈 SUPPORT TRENDLINE [${touchesStr}] • ${suppLine.status || 'ACTIVE'}`;
+            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            const sTw = ctx.measureText(sBadge).width;
+            const sBadgeH = 15;
+            const sBadgeX = Math.max(14, Math.min(sx2 - sTw - 14, chartPlotWidth - sTw - 14));
+            const sBadgeY = Math.max(10, Math.min(sy2 + 6, height - 20));
+
+            ctx.fillStyle = 'rgba(6, 78, 59, 0.90)';
+            ctx.fillRect(sBadgeX, sBadgeY, sTw + 12, sBadgeH);
+            ctx.strokeStyle = '#10B981';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sBadgeX, sBadgeY, sTw + 12, sBadgeH);
+            ctx.fillStyle = '#A7F3D0';
+            ctx.fillText(sBadge, sBadgeX + 6, sBadgeY + 11);
+            ctx.restore();
+          }
+        }
+      }
+
+      // 3. ICT / Dow Theory Market Structure Pivots (HH, HL, LH, LL) & BOS/CHoCH Breaks
+      const msData = (currentData && currentData.market_structure)
+        ? currentData.market_structure
+        : (currentConfluence && currentConfluence.market_structure ? currentConfluence.market_structure : null);
+
+      if (showStructure && msData) {
+        // A. Historical BOS / CHoCH Horizontal Breakdown/Breakout Lines
+        if (msData.structure_breaks && msData.structure_breaks.length > 0) {
+          msData.structure_breaks.forEach(brk => {
+            const bx1 = getXForTime(brk.start_time);
+            const bx2 = getXForTime(brk.break_time);
+            const by = tvCandleSeries.priceToCoordinate(brk.level);
+            if (bx1 !== null && bx2 !== null && by !== null && bx2 > bx1) {
+              const isBear = brk.direction === 'BEAR';
+              ctx.save();
+              ctx.strokeStyle = isBear ? 'rgba(239, 68, 68, 0.65)' : 'rgba(16, 185, 129, 0.65)';
+              ctx.lineWidth = 1.2;
+              ctx.setLineDash([4, 3]);
+              ctx.beginPath();
+              ctx.moveTo(bx1, by);
+              ctx.lineTo(bx2, by);
+              ctx.stroke();
+
+              // Break Badge Pill
+              const tagText = brk.label || (brk.type.includes('CHoCH') ? 'CHoCH' : 'BOS');
+              ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+              const tagTw = ctx.measureText(tagText).width;
+              const tagX = Math.max(bx1 + 4, bx2 - tagTw - 12);
+              const tagY = by - 7;
+
+              ctx.fillStyle = isBear ? 'rgba(69, 10, 10, 0.88)' : 'rgba(6, 78, 59, 0.88)';
+              ctx.fillRect(tagX, tagY, tagTw + 8, 13);
+              ctx.strokeStyle = isBear ? '#EF4444' : '#10B981';
+              ctx.lineWidth = 0.8;
+              ctx.strokeRect(tagX, tagY, tagTw + 8, 13);
+              ctx.fillStyle = isBear ? '#FECACA' : '#A7F3D0';
+              ctx.fillText(tagText, tagX + 4, tagY + 9.5);
+              ctx.restore();
+            }
+          });
+        }
+
+        // B. Labeled Swing Pivots (HH, HL, LH, LL)
+        if (msData.labeled_pivots && msData.labeled_pivots.length > 0) {
+          msData.labeled_pivots.forEach(p => {
+            const px = getXForTime(p.time);
+            const py = tvCandleSeries.priceToCoordinate(p.price);
+            if (px !== null && py !== null && px >= 0 && px <= chartPlotWidth) {
+              const isHigh = p.type === 'HIGH';
+              const isBull = (p.label === 'HH' || p.label === 'HL');
+              const lbl = p.label;
+              if (!lbl) return;
+
+              ctx.save();
+              ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+              const lTw = ctx.measureText(lbl).width;
+              const lPad = 4;
+              const lH = 13;
+              const lX = px - (lTw / 2) - lPad;
+              const lY = isHigh ? (py - 16) : (py + 5);
+
+              ctx.fillStyle = isHigh
+                ? (isBull ? 'rgba(16, 185, 129, 0.90)' : 'rgba(239, 68, 68, 0.90)')
+                : (isBull ? 'rgba(16, 185, 129, 0.90)' : 'rgba(239, 68, 68, 0.90)');
+
+              ctx.beginPath();
+              if (ctx.roundRect) {
+                ctx.roundRect(lX, lY, lTw + lPad * 2, lH, 3);
+              } else {
+                ctx.rect(lX, lY, lTw + lPad * 2, lH);
+              }
+              ctx.fill();
+
+              ctx.strokeStyle = isHigh ? (isBull ? '#10B981' : '#EF4444') : (isBull ? '#10B981' : '#EF4444');
+              ctx.lineWidth = 0.8;
+              ctx.stroke();
+
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillText(lbl, lX + lPad, lY + 9.5);
+              ctx.restore();
+            }
+          });
+        }
+      }
+
+      // 4. Parallel Trendline Channels & Corridors
       const channel = (currentData && currentData.parallel_channel)
         ? currentData.parallel_channel
         : (currentConfluence && currentConfluence.parallel_channel ? currentConfluence.parallel_channel : null);
 
       if (showChannel && channel && channel.active && channel.upper_line && channel.lower_line) {
-        let x1 = tvChart.timeScale().timeToCoordinate(channel.upper_line.start_time);
-        let x2 = tvChart.timeScale().timeToCoordinate(channel.upper_line.end_time);
+        let x1 = getXForTime(channel.upper_line.start_time);
+        let x2 = getXForTime(channel.upper_line.end_time);
 
         if (x1 === null) x1 = 20;
         if (x2 === null || x2 <= x1) x2 = chartPlotWidth - 10;
@@ -3174,6 +3447,7 @@
     function updateConfluenceUI(conf, radar) {
       if (!conf) return;
       currentConfluence = conf;
+      window.currentConfluence = conf;
       if (radar) currentBreakoutRadar = radar;
 
       const cSym = (currentData && currentData.currency_symbol) ? currentData.currency_symbol : '₹';
@@ -3244,7 +3518,8 @@
         if (flipEl) {
           const roundStr = ms.psychological_round ? ` | Round: ${cSym}${ms.psychological_round.level}` : '';
           const chStr = (conf.parallel_channel && conf.parallel_channel.active) ? ` | 📐 ${conf.parallel_channel.channel_type} [${conf.parallel_channel.status.split('(')[0].trim()}]` : '';
-          flipEl.textContent = (ms.sr_flip ? `Polarity: S-R Flip at ${cSym}${ms.sr_flip.mid_price.toFixed(2)}` : `Polarity: Thick Line S/R`) + roundStr + chStr;
+          const tlStr = (conf.trendlines && (conf.trendlines.resistance_line || conf.trendlines.support_line)) ? ` | 📉 S/R Trendlines: Active` : '';
+          flipEl.textContent = (ms.sr_flip ? `Polarity: S-R Flip at ${cSym}${ms.sr_flip.mid_price.toFixed(2)}` : `Polarity: Thick Line S/R`) + roundStr + chStr + tlStr;
         }
       }
 
@@ -3831,6 +4106,10 @@
           volEl.textContent = volData ? volData.value.toLocaleString() : (data.volume ? data.volume.toLocaleString() : '--');
         }
       });
+
+      if (currentData) {
+        renderChartData(currentData);
+      }
     }
 
     function applyChartTheme() {
@@ -3919,6 +4198,7 @@
         if (seq !== currentFetchSeq) return;
 
         currentData = data;
+        window.currentData = data;
         renderChartData(data);
         startRealTimeStream();
       } catch (err) {
@@ -3982,8 +4262,8 @@
       });
 
       if (sortedCandles.length > 0) {
-        tvCandleSeries.setData(sortedCandles);
-        tvVolumeSeries.setData(volumeData);
+        if (tvCandleSeries) tvCandleSeries.setData(sortedCandles);
+        if (tvVolumeSeries) tvVolumeSeries.setData(volumeData);
 
         // Feed Indicators (EMA 20, 50, 200 Ribbon & Anchored VWAP)
         if (tvEma20Series) tvEma20Series.setData(showEmas ? (data.ema_20 || []) : []);
@@ -3996,7 +4276,9 @@
           tvCandleSeries.setMarkers(showSignals ? (data.markers || []) : []);
         }
 
-        tvChart.timeScale().fitContent();
+        if (tvChart && tvChart.timeScale) {
+          try { tvChart.timeScale().fitContent(); } catch(e){}
+        }
 
         // Render S/R Zones & Risk-Reward Box Canvas Overlay
         setTimeout(() => renderZonesOverlay(), 60);
@@ -4004,13 +4286,16 @@
         // Update header summary with last candle
         const last = sortedCandles[sortedCandles.length - 1];
         const lastVol = volumeData[volumeData.length - 1];
-        document.getElementById('ohlcSummaryBadge').innerHTML = `
-          <span>O: ${cSym}${last.open.toFixed(2)}</span>
-          <span>H: ${cSym}${last.high.toFixed(2)}</span>
-          <span>L: ${cSym}${last.low.toFixed(2)}</span>
-          <span>C: ${cSym}${last.close.toFixed(2)}</span>
-          <span>Vol: ${lastVol ? lastVol.value.toLocaleString() : '--'}</span>
-        `;
+        const ohlcBadge = document.getElementById('ohlcSummaryBadge');
+        if (ohlcBadge && last) {
+          ohlcBadge.innerHTML = `
+            <span>O: ${cSym}${last.open.toFixed(2)}</span>
+            <span>H: ${cSym}${last.high.toFixed(2)}</span>
+            <span>L: ${cSym}${last.low.toFixed(2)}</span>
+            <span>C: ${cSym}${last.close.toFixed(2)}</span>
+            <span>Vol: ${lastVol ? lastVol.value.toLocaleString() : '--'}</span>
+          `;
+        }
         updateHoverLegendWithLatest();
       }
 
@@ -4279,7 +4564,7 @@
       if (loader) loader.style.display = 'flex';
 
       try {
-        const url = `/api/screener?capital=5000&timeframe=${encodeURIComponent(currentTimeframe)}&category=${encodeURIComponent(screenerCurrentCategory)}&live_only=${screenerLiveOnly}&min_score=${screenerMinScore}`;
+        const url = `/api/screener?capital=5000&timeframe=1d&category=${encodeURIComponent(screenerCurrentCategory)}&live_only=${screenerLiveOnly}&min_score=${screenerMinScore}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -4527,7 +4812,20 @@
       loadChartData();
       fetchMarketIndices();
       setInterval(fetchMarketIndices, 30000); // Poll indices every 30s
-      loadScreener();
+
+      // Lazy-load screener when user scrolls down to it to keep initial chart ultra-responsive
+      const screenerSec = document.getElementById('marketScreenerSection');
+      if (screenerSec && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting) {
+            loadScreener();
+            observer.disconnect();
+          }
+        }, { rootMargin: '250px' });
+        observer.observe(screenerSec);
+      } else {
+        setTimeout(() => loadScreener(), 6000);
+      }
       setInterval(() => loadScreener(), 60000); // Auto-refresh screener every 60s
     }
 

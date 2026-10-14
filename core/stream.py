@@ -49,6 +49,9 @@ class RealTimeStreamEngine:
             atr = analysis["atr"]
             current_p = float(last_row["Close"])
 
+            radar = detect_breakout_confirmation(df, current_price=current_p)
+            confluence = evaluate_master_confluence(df, current_price=current_p, capital=capital, risk_pct=risk_pct, symbol=resolved_sym, fast_news=True)
+
             self._states[key] = {
                 "symbol": resolved_sym,
                 "df": df,
@@ -58,6 +61,8 @@ class RealTimeStreamEngine:
                 "capital": capital,
                 "risk_pct": risk_pct,
                 "analysis": analysis,
+                "radar": radar,
+                "confluence": confluence,
                 "atr": atr,
                 "base_price": current_p,
                 "current_price": current_p,
@@ -355,8 +360,8 @@ class RealTimeStreamEngine:
                 "be_active": state["be_active"]
             },
             "tape_history": state["tape_history"][:5],
-            "breakout_radar": detect_breakout_confirmation(state.get("df"), current_price=new_price),
-            "confluence": evaluate_master_confluence(state.get("df"), current_price=new_price, capital=state["capital"], risk_pct=state["risk_pct"], symbol=state.get("symbol"), fast_news=True),
+            "breakout_radar": state.get("radar") or detect_breakout_confirmation(state.get("df"), current_price=new_price),
+            "confluence": state.get("confluence") or evaluate_master_confluence(state.get("df"), current_price=new_price, capital=state["capital"], risk_pct=state["risk_pct"], symbol=state.get("symbol"), fast_news=True),
             "timestamp": int(time.time())
         }
 

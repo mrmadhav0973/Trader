@@ -30,7 +30,7 @@ DEFAULT_WATCHLIST = [
 # In-memory OHLCV Cache: (symbol, timeframe, period) -> (timestamp, df)
 _OHLCV_CACHE: dict = {}
 _FAILED_CANDIDATE_CACHE: dict = {}  # Negative cache to prevent hammering dead candidates
-CACHE_TTL_SECONDS = 60.0  # 1 minute fresh cache
+CACHE_TTL_SECONDS = 180.0  # 3 minutes fresh cache
 FAILED_TTL_SECONDS = 15.0  # 15 seconds negative cache (fast recovery from transient glitches)
 
 # Common US / Global tickers (no exchange suffix on Yahoo Finance)

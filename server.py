@@ -31,7 +31,7 @@ app = FastAPI(title="AlphaEdge Trading Terminal API")
 
 # Caches
 _ANALYSIS_CACHE: dict = {}
-_ANALYSIS_CACHE_TTL = 45.0  # 45 seconds cache
+_ANALYSIS_CACHE_TTL = 120.0  # 120 seconds cache
 
 _SCREENER_CACHE: dict = {}
 _SCREENER_LOCK = threading.Lock()
@@ -48,14 +48,30 @@ PRESET_SYMBOLS = [
 
 
 def prewarm_cache():
-    """Background worker to pre-warm top symbols."""
-    print("[AlphaEdge] Pre-warming cache for key symbols...")
+    """Background worker to pre-warm top symbols and chart analysis."""
+    print("[AlphaEdge] Pre-warming cache for default symbols...")
+    for sym in ["TATAPOWER.NS", "BTC-USD"]:
+        try:
+            get_analysis(sym, timeframe="1d", capital=5000.0, risk_pct=0.02)
+            print(f"[AlphaEdge] {sym} analysis pre-warmed successfully!")
+        except Exception as e:
+            print(f"Pre-warm analysis note for {sym}: {e}")
+
     for sym in PRESET_SYMBOLS:
+        if sym in ["TATAPOWER.NS", "BTC-USD"]:
+            continue
         try:
             fetch_ohlcv(sym, timeframe="1d")
-            time.sleep(0.2)
+            time.sleep(0.05)
         except Exception as e:
             print(f"Pre-warm note for {sym}: {e}")
+
+    try:
+        refresh_screener_cache(capital=5000.0, timeframe="1d", category="all", live_only=False, min_score=60)
+        print("[AlphaEdge] Screener pre-warmed successfully!")
+    except Exception as e:
+        print(f"Pre-warm screener note: {e}")
+
     print("[AlphaEdge] Cache pre-warming complete. Instant switching ready.")
 
 
@@ -95,10 +111,10 @@ def refresh_screener_cache(
         candidates = SCREENER_PRIME_INDIAN + SCREENER_PRIME_US
     else:  # "all"
         candidates = (
-            SCREENER_PRIME_INDIAN[:8] +
-            SCREENER_PRIME_CRYPTO[:6] +
-            SCREENER_PRIME_US[:6] +
-            SCREENER_PRIME_COMMODITIES[:4]
+            SCREENER_PRIME_INDIAN[:5] +
+            SCREENER_PRIME_CRYPTO[:4] +
+            SCREENER_PRIME_US[:4] +
+            SCREENER_PRIME_COMMODITIES[:3]
         )
 
     with _SCREENER_LOCK:
@@ -233,7 +249,7 @@ def refresh_screener_cache(
 
         # Execute candidate evaluations concurrently
         if candidate_items:
-            with ThreadPoolExecutor(max_workers=16) as executor:
+            with ThreadPoolExecutor(max_workers=6) as executor:
                 futures = [executor.submit(eval_candidate, item) for item in candidate_items]
                 for f in as_completed(futures):
                     res = f.result()
@@ -339,6 +355,15 @@ def get_analysis(
     Fetch clean candlestick market data and quote telemetry for the pure chart terminal.
     Bypasses heavy indicator/analysis computation for instant ultra-low latency response.
     """
+    try:
+        capital = float(capital)
+    except Exception:
+        capital = 5000.0
+    try:
+        risk_pct = float(risk_pct)
+    except Exception:
+        risk_pct = 0.02
+
     try:
         df = fetch_ohlcv(symbol, timeframe=timeframe)
         resolved_sym = df.attrs.get("resolved_symbol", normalize_symbol(symbol))
@@ -471,6 +496,8 @@ def get_analysis(
         "vwap": vwap_series,
         "markers": markers,
         "sr_zones": confluence.get("all_sr_zones", []),
+        "trendlines": confluence.get("trendlines", {}),
+        "market_structure": confluence.get("market_structure", {}),
         "parallel_channel": confluence.get("parallel_channel", {}),
         "mtf_alignment": confluence.get("mtf_alignment", {}),
         "fvgs": confluence.get("fvgs", []),
@@ -606,7 +633,7 @@ def run_screener(
     
     if cache_key in _SCREENER_CACHE:
         cached = _SCREENER_CACHE[cache_key]
-        if (now - cached.get("timestamp", 0)) < 30.0:
+        if (now - cached.get("timestamp", 0)) < 300.0:
             return cached
 
     payload = refresh_screener_cache(

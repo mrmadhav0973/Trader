@@ -27,8 +27,10 @@ from core.patterns import (
     detect_swing_points,
     analyze_candlestick_anatomy,
     analyze_market_structure,
+    detect_human_market_structure,
     cluster_support_resistance_zones,
-    calculate_algorithmic_parallel_channels
+    calculate_algorithmic_parallel_channels,
+    calculate_algorithmic_trendlines
 )
 from core.smc import (
     detect_fair_value_gaps,
@@ -84,10 +86,14 @@ def evaluate_master_confluence(
         df = add_all_indicators(df)
 
     # 1. Swings, S/R Zones & Market Structure
-    swing_highs, swing_lows = detect_swing_points(df, window=4)
+    swing_highs, swing_lows = detect_swing_points(df, window=3)
     structure = analyze_market_structure(df, swing_highs, swing_lows)
-    sr_zones = cluster_support_resistance_zones(df, swing_highs, swing_lows, threshold_pct=0.015, max_zones=6)
-    parallel_channel = calculate_algorithmic_parallel_channels(df, swing_highs, swing_lows)
+    market_structure_intel = detect_human_market_structure(df, swing_highs, swing_lows)
+    sr_zones = cluster_support_resistance_zones(df, swing_highs, swing_lows, threshold_pct=0.015, max_zones=8)
+    trendlines_data = calculate_algorithmic_trendlines(df, swing_highs, swing_lows)
+    res_line = trendlines_data.get("resistance_line")
+    supp_line = trendlines_data.get("support_line")
+    parallel_channel = trendlines_data.get("parallel_channel", {"active": False})
     
     # 2. Candlestick Anatomy & Liquidity Sweeps
     candle_patterns = analyze_candlestick_anatomy(df, lookback=5)
@@ -312,19 +318,26 @@ def evaluate_master_confluence(
     in_lower_channel = ch_active and (parallel_channel.get("position_pct", 50) <= 25) and ("ASCENDING" in parallel_channel.get("channel_type", ""))
     in_upper_channel = ch_active and (parallel_channel.get("position_pct", 50) >= 75) and ("DESCENDING" in parallel_channel.get("channel_type", ""))
 
+    at_supp_trendline = supp_line and supp_line.get("active") and abs(curr_p - supp_line.get("end_price", 0)) / curr_p <= 0.018
+    at_res_trendline = res_line and res_line.get("active") and abs(curr_p - res_line.get("end_price", 0)) / curr_p <= 0.018
+
     if overall_long:
-        p2_passed = dist_to_demand <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote or in_lower_channel
+        p2_passed = dist_to_demand <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote or in_lower_channel or at_supp_trendline
         demand_str = f"{c_sym}{nearest_demand['min_price']:.2f} - {c_sym}{nearest_demand['max_price']:.2f}" if nearest_demand else "Macro Base"
         extra_zone = " • At Fib Golden Pocket (0.618-0.786)" if in_fib_gp else (" • Inside Bullish FVG Imbalance" if in_fvg else "")
         if in_lower_channel:
             extra_zone += f" • Lower Support of {parallel_channel['channel_type']} ({c_sym}{parallel_channel['lower_line']['end_price']:.2f})"
+        elif at_supp_trendline:
+            extra_zone += f" • At {supp_line['label']} ({c_sym}{supp_line['end_price']:.2f})"
         p2_detail = f"At High-Value Zone: Price within {min(dist_to_demand, dist_to_vwap):.2f}% of Institutional Demand Zone ({demand_str}) / VWAP ({c_sym}{vwap:.2f}){extra_zone}." if p2_passed else f"Chasing in no-man's land: Price is {dist_to_demand:.2f}% away from nearest Demand Zone."
     else:
-        p2_passed = dist_to_supply <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote or in_upper_channel
+        p2_passed = dist_to_supply <= 1.8 or dist_to_vwap <= 0.8 or (active_sr_flip is not None and abs(curr_p - active_sr_flip["mid_price"]) / curr_p <= 0.015) or in_fvg or in_fib_gp or in_fib_ote or in_upper_channel or at_res_trendline
         supply_str = f"{c_sym}{nearest_supply['min_price']:.2f} - {c_sym}{nearest_supply['max_price']:.2f}" if nearest_supply else "Overhead Resistance"
         extra_zone = " • At Fib Golden Pocket (0.618-0.786)" if in_fib_gp else (" • Inside Bearish FVG Imbalance" if in_fvg else "")
         if in_upper_channel:
             extra_zone += f" • Upper Resistance of {parallel_channel['channel_type']} ({c_sym}{parallel_channel['upper_line']['end_price']:.2f})"
+        elif at_res_trendline:
+            extra_zone += f" • At {res_line['label']} ({c_sym}{res_line['end_price']:.2f})"
         p2_detail = f"At High-Value Zone: Price within {min(dist_to_supply, dist_to_vwap):.2f}% of Overhead Supply Zone ({supply_str}) / VWAP ({c_sym}{vwap:.2f}){extra_zone}." if p2_passed else f"Stretched from supply: Price is {dist_to_supply:.2f}% away from nearest Supply Zone."
 
     checklist.append({
@@ -341,14 +354,16 @@ def evaluate_master_confluence(
     has_ttm_fire = ttm_data.get("squeeze_fired", False)
     ch_bounce_long = ch_active and in_lower_channel and (is_hammer or is_engulfing_bull or c_close > c_open)
     ch_bounce_short = ch_active and in_upper_channel and (is_shooting_star or is_engulfing_bear or c_close < c_open)
+    tl_bounce_long = at_supp_trendline and (is_hammer or is_engulfing_bull or c_close > c_open)
+    tl_bounce_short = at_res_trendline and (is_shooting_star or is_engulfing_bear or c_close < c_open)
 
     if overall_long:
-        p3_passed = is_hammer or is_engulfing_bull or rsi_div.get("bullish_divergence") or trap_type == "BULLISH LIQUIDITY SWEEP" or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bull_absorption or has_ttm_fire or ch_bounce_long
-        extra_trig = " • [CVD Bullish Absorption Confirmed]" if has_cvd_bull_absorption else (" • [TTM Squeeze Fired]" if has_ttm_fire else "")
+        p3_passed = is_hammer or is_engulfing_bull or rsi_div.get("bullish_divergence") or trap_type == "BULLISH LIQUIDITY SWEEP" or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bull_absorption or has_ttm_fire or ch_bounce_long or tl_bounce_long
+        extra_trig = " • [CVD Bullish Absorption Confirmed]" if has_cvd_bull_absorption else (" • [TTM Squeeze Fired]" if has_ttm_fire else (" • [Support Trendline Bounce]" if tl_bounce_long else ""))
         p3_detail = f"Confirmed Price Action Trigger: {candle_name} printed with {lower_wick_pct:.0f}% absorption wick. {vsa_verdict}{extra_trig}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive reversal candle or sweep yet. Current bar: {candle_name}."
     else:
-        p3_passed = is_shooting_star or is_engulfing_bear or rsi_div.get("bearish_divergence") or trap_active or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bear_exhaustion or has_ttm_fire or ch_bounce_short
-        extra_trig = " • [CVD Bearish Exhaustion Confirmed]" if has_cvd_bear_exhaustion else (" • [TTM Squeeze Fired]" if has_ttm_fire else "")
+        p3_passed = is_shooting_star or is_engulfing_bear or rsi_div.get("bearish_divergence") or trap_active or breakout_radar.get("stage") == "CONFIRMED" or has_cvd_bear_exhaustion or has_ttm_fire or ch_bounce_short or tl_bounce_short
+        extra_trig = " • [CVD Bearish Exhaustion Confirmed]" if has_cvd_bear_exhaustion else (" • [TTM Squeeze Fired]" if has_ttm_fire else (" • [Resistance Trendline Rejection]" if tl_bounce_short else ""))
         p3_detail = f"Confirmed Price Action Trigger: {candle_name} with {upper_wick_pct:.0f}% supply rejection. {trap_type if trap_active else vsa_verdict}{extra_trig}" if p3_passed else f"Awaiting Confirmation Trigger: No decisive supply rejection yet. Current bar: {candle_name}."
 
     checklist.append({
@@ -546,7 +561,9 @@ def evaluate_master_confluence(
             "psychological_round": {
                 "level": nearest_round,
                 "distance_pct": dist_to_round_pct
-            }
+            },
+            "labeled_pivots": market_structure_intel.get("labeled_pivots", []),
+            "structure_breaks": market_structure_intel.get("structure_breaks", [])
         },
         "candlestick_and_vsa": {
             "candle_name": candle_name,
@@ -581,6 +598,8 @@ def evaluate_master_confluence(
         "execution_plan": exec_plan,
         "news_intelligence": news_intel,
         "all_sr_zones": sr_zones,
+        "trendlines": trendlines_data,
+        "parallel_channel": parallel_channel,
         "fvgs": fvgs,
         "fib_golden_pocket": fib_data,
         "relative_strength": rs_data,
