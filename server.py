@@ -24,6 +24,7 @@ from core.confluence import evaluate_master_confluence
 from core.stream import stream_engine
 from core.market_hours import get_market_status, get_asset_category
 from core.ai_veteran import audit_market_setup, ask_veteran_question
+from core.ai_chart_brain import analyze_chart_with_ai
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -487,6 +488,83 @@ def get_analysis(
                 "text": clean_cname
             })
 
+    # Execute AI Chart Brain to directly analyze candlestick sequences and dictate chart elements
+    ai_chart = analyze_chart_with_ai(
+        symbol=resolved_sym,
+        timeframe=timeframe,
+        df=df,
+        current_price=curr_price,
+        confluence_summary=confluence,
+        force_refresh=False
+    )
+
+    # Harmonize AI Zones: AI-discovered institutional zones take top priority with prominent badges
+    ai_zones = ai_chart.get("ai_zones", [])
+    algo_zones = confluence.get("all_sr_zones", [])
+    combined_zones = []
+    for az in ai_zones:
+        az_copy = dict(az)
+        az_copy["is_ai_zone"] = True
+        combined_zones.append(az_copy)
+    for z in algo_zones:
+        mid = z.get("mid_price", 0)
+        if not any(abs(az.get("mid_price", 0) - mid) < (curr_price * 0.008) for az in ai_zones):
+            combined_zones.append(z)
+
+    # Harmonize Trendlines: AI-identified institutional boundaries take precedence
+    chart_trendlines = dict(confluence.get("trendlines", {}))
+    ai_trendlines = ai_chart.get("ai_trendlines", [])
+    if ai_trendlines:
+        for tl in ai_trendlines:
+            tl_type = tl.get("type", "").upper()
+            tl_obj = {
+                "active": True,
+                "type": tl_type,
+                "start_time": tl.get("start_time"),
+                "start_price": tl.get("start_price"),
+                "end_time": tl.get("end_time"),
+                "end_price": tl.get("end_price"),
+                "label": f"🧠 [AI] {tl.get('label', 'Institutional Trendline')}",
+                "touches": tl.get("touches", 3),
+                "is_ai_trendline": True,
+                "slope": tl.get("slope", 0.0),
+                "status": "ACTIVE AI BOUNDARY"
+            }
+            if tl_type == "RESISTANCE":
+                chart_trendlines["resistance_line"] = tl_obj
+            elif tl_type == "SUPPORT":
+                chart_trendlines["support_line"] = tl_obj
+
+    # Synchronize Confluence Action, Score & Execution Plan with AI Brain
+    if ai_chart.get("action"):
+        confluence["action"] = ai_chart["action"]
+    if ai_chart.get("confluence_score"):
+        confluence["accuracy_score"] = int(ai_chart["confluence_score"])
+    if ai_chart.get("setup_title"):
+        confluence["setup_title"] = ai_chart["setup_title"]
+        if confluence.get("market_structure"):
+            confluence["market_structure"]["phase"] = ai_chart.get("regime", confluence["market_structure"].get("phase"))
+
+    ai_exec = ai_chart.get("execution", {})
+    if ai_exec and "execution_plan" in confluence:
+        ep = confluence["execution_plan"]
+        if ai_exec.get("entry_price"):
+            ep["entry_price"] = float(ai_exec["entry_price"])
+        if ai_exec.get("entry_type"):
+            ep["recommended_entry_type"] = ai_exec["entry_type"]
+        if ai_exec.get("stop_loss"):
+            ep["stop_loss"] = float(ai_exec["stop_loss"])
+        if ai_exec.get("target_1"):
+            ep["target_1"] = float(ai_exec["target_1"])
+        if ai_exec.get("target_2"):
+            ep["target_2"] = float(ai_exec["target_2"])
+        if ai_exec.get("target_3"):
+            ep["target_3"] = float(ai_exec["target_3"])
+        if ai_exec.get("invalidation_thesis"):
+            ep["sl_invalidation_logic"] = ai_exec["invalidation_thesis"]
+        if ai_exec.get("risk_reward"):
+            ep["risk_reward_ratio"] = ai_exec["risk_reward"]
+
     payload = {
         "symbol": resolved_sym,
         "currency": currency,
@@ -501,8 +579,10 @@ def get_analysis(
         "ema_200": ema_200_series,
         "vwap": vwap_series,
         "markers": markers,
-        "sr_zones": confluence.get("all_sr_zones", []),
-        "trendlines": confluence.get("trendlines", {}),
+        "sr_zones": combined_zones,
+        "trendlines": chart_trendlines,
+        "projected_path": ai_chart.get("projected_path", []),
+        "ai_chart_analysis": ai_chart,
         "market_structure": confluence.get("market_structure", {}),
         "parallel_channel": confluence.get("parallel_channel", {}),
         "mtf_alignment": confluence.get("mtf_alignment", {}),
@@ -733,6 +813,38 @@ def post_ai_ask(req: AskVeteranRequest):
         "timeframe": tf,
         "timestamp": time.time()
     }
+
+
+@app.post("/api/ai/reanalyze-chart")
+def post_reanalyze_chart(
+    symbol: str = Query("TATAPOWER.NS", description="Symbol to re-analyze"),
+    timeframe: str = Query("1d", description="Timeframe")
+):
+    """
+    Force fresh real-time deep candlestick analysis through the AI Chart Brain.
+    Re-examines price wicks, true institutional supply/demand blocks, and anticipated trajectory.
+    """
+    sym = normalize_symbol(symbol)
+    tf = timeframe.lower()
+    df = fetch_ohlcv(sym, timeframe=tf)
+    curr_p = float(df["Close"].iloc[-1])
+
+    ai_chart = analyze_chart_with_ai(
+        symbol=sym,
+        timeframe=tf,
+        df=df,
+        current_price=curr_p,
+        force_refresh=True
+    )
+
+    # Invalidate cache so fresh markups are returned immediately
+    cache_key = (sym, tf)
+    if cache_key in _ANALYSIS_CACHE:
+        del _ANALYSIS_CACHE[cache_key]
+    if (symbol.strip().upper(), tf) in _ANALYSIS_CACHE:
+        del _ANALYSIS_CACHE[(symbol.strip().upper(), tf)]
+
+    return ai_chart
 
 
 if __name__ == "__main__":

@@ -2147,6 +2147,72 @@
       transition: var(--transition-smooth);
     }
     .btn-ai-send:hover { opacity: 0.9; }
+
+    /* On-Chart 20-Year AI Brain Floating HUD */
+    .ai-chart-floating-hud {
+      position: absolute;
+      top: 48px;
+      left: 14px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.94);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(139, 92, 246, 0.65);
+      border-radius: 24px;
+      padding: 6px 16px 6px 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), 0 0 15px rgba(139, 92, 246, 0.25);
+      max-width: min(720px, calc(100% - 120px));
+      transition: var(--transition-smooth);
+      pointer-events: auto;
+    }
+    .ai-hud-pulse {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #8B5CF6;
+      box-shadow: 0 0 10px #8B5CF6;
+      animation: pulse-glow 2s infinite;
+      flex-shrink: 0;
+    }
+    .ai-hud-text {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .ai-hud-title {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #EDE9FE;
+      letter-spacing: 0.3px;
+    }
+    .ai-hud-sub {
+      font-size: 10px;
+      color: #94A3B8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .btn-ai-hud-reanalyze {
+      background: linear-gradient(135deg, #8B5CF6, #3B82F6);
+      border: none;
+      border-radius: 14px;
+      padding: 4px 11px;
+      color: #FFF;
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      transition: var(--transition-smooth);
+    }
+    .btn-ai-hud-reanalyze:hover {
+      opacity: 0.9;
+      transform: scale(1.03);
+    }
   </style>
 </head>
 <body>
@@ -2763,8 +2829,22 @@
       <div class="chart-canvas-wrapper" id="chartCanvasWrapper">
         <div class="loading-spinner" id="chartLoader">⚡ Loading Candlesticks...</div>
 
+        <!-- On-Chart 20-Year AI Brain Floating HUD -->
+        <div class="ai-chart-floating-hud" id="aiChartFloatingHud">
+          <div class="ai-hud-pulse"></div>
+          <div class="ai-hud-text">
+            <span class="ai-hud-title" id="aiHudTitle">🧠 AI Brain: Initializing Market Vision...</span>
+            <span class="ai-hud-sub" id="aiHudSub">Analyzing Wyckoff phases, liquidity wicks, and smart money blocks...</span>
+          </div>
+          <button class="btn-ai-hud-reanalyze" id="btnAiHudReanalyze" onclick="reanalyzeChartWithAi()" title="Force real-time re-analysis of current chart candles">
+            ⚡ Re-Analyze
+          </button>
+        </div>
+
         <!-- Floating Controls Toolbar -->
         <div class="tv-floating-toolbar">
+          <button class="tv-btn active" id="btnToggleAiBrain" onclick="toggleAiBrainOverlay()" title="Toggle 20-Year AI Brain Zones, Trendlines & Markups" style="border-color: #8B5CF6; color: #A78BFA; background: rgba(139, 92, 246, 0.15);">🧠 AI Brain: ON</button>
+          <button class="tv-btn active" id="btnToggleAiPath" onclick="toggleAiPathOverlay()" title="Toggle AI Anticipated Trajectory Path" style="border-color: #3B82F6; color: #60A5FA; background: rgba(59, 130, 246, 0.15);">⚡ AI Path: ON</button>
           <button class="tv-btn active" id="btnToggleZones" onclick="toggleZones()" title="Toggle S/R Demand & Supply Thick Line Zones">🛡️ Zones: ON</button>
           <button class="tv-btn active" id="btnToggleTrendlines" onclick="toggleTrendlines()" title="Toggle Major Multi-Touch Support & Resistance Trendlines">📉 Trendlines: ON</button>
           <button class="tv-btn active" id="btnToggleStructure" onclick="toggleStructure()" title="Toggle Market Structure Pivots (HH, HL, LH, LL) & BOS/CHoCH Breaks">🏷️ Structure: ON</button>
@@ -3014,6 +3094,90 @@
       if (pane) pane.classList.add('active');
     }
 
+    let showAiBrain = true;
+    let showAiPath = true;
+
+    function toggleAiBrainOverlay() {
+      showAiBrain = !showAiBrain;
+      const btn = document.getElementById('btnToggleAiBrain');
+      if (btn) {
+        btn.textContent = `🧠 AI Brain: ${showAiBrain ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showAiBrain);
+        btn.classList.toggle('off', !showAiBrain);
+      }
+      renderZonesOverlay();
+    }
+
+    function toggleAiPathOverlay() {
+      showAiPath = !showAiPath;
+      const btn = document.getElementById('btnToggleAiPath');
+      if (btn) {
+        btn.textContent = `⚡ AI Path: ${showAiPath ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('active', showAiPath);
+        btn.classList.toggle('off', !showAiPath);
+      }
+      renderZonesOverlay();
+    }
+
+    function updateAiChartHud(data) {
+      const titleEl = document.getElementById('aiHudTitle');
+      const subEl = document.getElementById('aiHudSub');
+      if (!titleEl) return;
+
+      const ai = (data && data.ai_chart_analysis) ? data.ai_chart_analysis : null;
+      if (!ai) {
+        titleEl.textContent = '🧠 AI Brain: Active';
+        if (subEl) subEl.textContent = 'Directly analyzing candlestick sequences & liquidity blocks...';
+        return;
+      }
+
+      const act = ai.action || (data.confluence ? data.confluence.action : 'ANALYZING');
+      const score = ai.confluence_score || (data.confluence ? data.confluence.accuracy_score : 90);
+      const setup = ai.setup_title || 'Institutional Strategy';
+      const trap = ai.trapped_retail || 'Scanning stops';
+
+      const actColor = act.includes('BUY') ? 'var(--color-bull)' : (act.includes('SELL') ? 'var(--color-bear)' : 'var(--color-accent-amber)');
+      titleEl.innerHTML = `🧠 AI Brain: <strong style="color: ${actColor}">${act} (${score}%)</strong> • ${escapeHtml(setup)}`;
+      if (subEl) {
+        subEl.textContent = `Regime: ${ai.regime || 'Institutional Flow'} • Trap: ${trap}`;
+      }
+    }
+
+    async function reanalyzeChartWithAi() {
+      const btn = document.getElementById('btnAiHudReanalyze');
+      const hudTitle = document.getElementById('aiHudTitle');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Analyzing...';
+      }
+      if (hudTitle) {
+        hudTitle.innerHTML = '🧠 AI Brain: <em style="color: #A78BFA;">Deep-Scanning Candlesticks via Groq 120B...</em>';
+      }
+      showNotification('🧠 AI Brain is directly re-analyzing candlestick wicks & institutional zones...');
+
+      try {
+        const sym = currentSymbol || 'TATAPOWER.NS';
+        const tf = currentTimeframe || '1d';
+        const res = await fetch(`/api/ai/reanalyze-chart?symbol=${encodeURIComponent(sym)}&timeframe=${encodeURIComponent(tf)}`, {
+          method: 'POST'
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const aiData = await res.json();
+
+        // Reload full chart data to paint fresh AI markups
+        await loadChartData();
+        showNotification('✅ AI Brain Analysis & Visual Markups Updated on Chart!');
+      } catch (err) {
+        console.error('AI Re-analyze error:', err);
+        showNotification('⚠️ AI Re-analyze failed. Please retry.');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '⚡ Re-Analyze';
+        }
+      }
+    }
+
     function toggleZones() {
       showZones = !showZones;
       const btn = document.getElementById('btnToggleZones');
@@ -3165,6 +3329,21 @@
         if (coord !== null && !isNaN(coord)) return coord;
         if (currentData && currentData.candles && currentData.candles.length > 0) {
           const candles = currentData.candles;
+          const lastCandle = candles[candles.length - 1];
+          const prevCandle = candles.length > 1 ? candles[candles.length - 2] : null;
+
+          // If target is in the future beyond last candle, extrapolate smoothly into the future chart space
+          if (targetTs > lastCandle.time && prevCandle) {
+            const lastCoord = tvChart.timeScale().timeToCoordinate(lastCandle.time);
+            const prevCoord = tvChart.timeScale().timeToCoordinate(prevCandle.time);
+            if (lastCoord !== null && prevCoord !== null) {
+              const dt = lastCandle.time - prevCandle.time || 86400;
+              const dx = Math.max(5, lastCoord - prevCoord);
+              const futureBars = (targetTs - lastCandle.time) / dt;
+              return Math.min(chartPlotWidth - 10, lastCoord + (futureBars * dx));
+            }
+          }
+
           let closest = candles[0];
           let minDiff = Math.abs(closest.time - targetTs);
           for (let i = 1; i < candles.length; i++) {
@@ -3191,6 +3370,14 @@
         zonesToRender.forEach(z => {
           if (!z || isNaN(z.mid_price)) return;
 
+          const isDemand = (z.type === 'support' || z.type === 'DEMAND');
+          const isFlip = !!(z.is_flip || z.is_sr_flip);
+          const isMajor = (z.strength === 'MAJOR');
+          const isAiZone = !!(z.is_ai_zone);
+
+          // Respect AI Brain toggle
+          if (!showAiBrain && isAiZone) return;
+
           let yMid = tvCandleSeries.priceToCoordinate(z.mid_price);
           if (yMid === null) {
             let y1 = !isNaN(z.min_price) ? tvCandleSeries.priceToCoordinate(z.min_price) : null;
@@ -3203,36 +3390,47 @@
 
           if (yMid < -20 || yMid > height + 20) return;
 
-          const isDemand = (z.type === 'support' || z.type === 'DEMAND');
-          const isFlip = !!(z.is_flip || z.is_sr_flip);
-          const isMajor = (z.strength === 'MAJOR');
-
-          // Strict compact "thick line zone" (7px ribbon centered on mid_price)
-          const ribbonHalfH = 3.5;
+          // Strict compact "thick line zone" (7px ribbon centered on mid_price, 9px for AI zones)
+          const ribbonHalfH = isAiZone ? 4.5 : 3.5;
           const topY = yMid - ribbonHalfH;
           const bottomY = yMid + ribbonHalfH;
 
-          // Subtle Translucent Glow Halo
-          ctx.fillStyle = isFlip 
-            ? 'rgba(245, 158, 11, 0.18)'
-            : (isDemand ? 'rgba(16, 185, 129, 0.16)' : 'rgba(239, 68, 68, 0.16)');
+          ctx.save();
+          // Glow Halo
+          if (isAiZone) {
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = isDemand ? 'rgba(56, 189, 248, 0.45)' : 'rgba(192, 132, 252, 0.45)';
+            ctx.fillStyle = isDemand ? 'rgba(30, 58, 138, 0.25)' : 'rgba(88, 28, 135, 0.25)';
+          } else {
+            ctx.fillStyle = isFlip 
+              ? 'rgba(245, 158, 11, 0.18)'
+              : (isDemand ? 'rgba(16, 185, 129, 0.16)' : 'rgba(239, 68, 68, 0.16)');
+          }
           ctx.fillRect(0, topY, chartPlotWidth, bottomY - topY);
 
-          // Solid 2px Core Line
-          ctx.save();
-          ctx.strokeStyle = isFlip 
-            ? '#F59E0B'
-            : (isDemand ? '#10B981' : '#EF4444');
-          ctx.lineWidth = isMajor ? 2.0 : 1.5;
+          // Solid Core Line
+          if (isAiZone) {
+            ctx.strokeStyle = isDemand ? '#38BDF8' : '#C084FC';
+            ctx.lineWidth = 2.4;
+          } else {
+            ctx.strokeStyle = isFlip 
+              ? '#F59E0B'
+              : (isDemand ? '#10B981' : '#EF4444');
+            ctx.lineWidth = isMajor ? 2.0 : 1.5;
+          }
           ctx.beginPath();
           ctx.moveTo(0, yMid);
           ctx.lineTo(chartPlotWidth, yMid);
           ctx.stroke();
 
-          // Subtle Dashed Outer Bounds
-          ctx.strokeStyle = isFlip 
-            ? 'rgba(245, 158, 11, 0.45)'
-            : (isDemand ? 'rgba(16, 185, 129, 0.40)' : 'rgba(239, 68, 68, 0.40)');
+          // Outer Bounds
+          if (isAiZone) {
+            ctx.strokeStyle = isDemand ? 'rgba(56, 189, 248, 0.50)' : 'rgba(192, 132, 252, 0.50)';
+          } else {
+            ctx.strokeStyle = isFlip 
+              ? 'rgba(245, 158, 11, 0.45)'
+              : (isDemand ? 'rgba(16, 185, 129, 0.40)' : 'rgba(239, 68, 68, 0.40)');
+          }
           ctx.lineWidth = 0.75;
           ctx.setLineDash([3, 3]);
           ctx.beginPath();
@@ -3246,7 +3444,9 @@
           // Compact Badge Pill
           const touchesText = z.touches ? `${z.touches}x` : '2x';
           let badgeText = '';
-          if (isFlip) {
+          if (isAiZone) {
+            badgeText = z.label ? `${z.label} [${cSym}${Number(z.mid_price).toFixed(1)}]` : `🧠 [AI ${isDemand ? 'DEMAND' : 'SUPPLY'}] • ${touchesText} [${cSym}${Number(z.mid_price).toFixed(1)}]`;
+          } else if (isFlip) {
             badgeText = `⚡ S-R FLIP • ${touchesText} [${cSym}${Number(z.mid_price).toFixed(1)}]`;
           } else if (isDemand) {
             badgeText = `🟢 DEMAND • ${touchesText} [${cSym}${Number(z.mid_price).toFixed(1)}] ${isMajor ? '★' : ''}`;
@@ -3254,17 +3454,21 @@
             badgeText = `🔴 SUPPLY • ${touchesText} [${cSym}${Number(z.mid_price).toFixed(1)}] ${isMajor ? '★' : ''}`;
           }
 
-          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.font = isAiZone ? 'bold 9.5px "JetBrains Mono", monospace' : 'bold 9px "JetBrains Mono", monospace';
           const textWidth = ctx.measureText(badgeText).width;
-          const badgePaddingX = 5;
-          const badgeHeight = 14;
-          const badgeY = Math.max(3, Math.min(yMid - 7, height - badgeHeight - 3));
+          const badgePaddingX = isAiZone ? 6 : 5;
+          const badgeHeight = 15;
+          const badgeY = Math.max(3, Math.min(yMid - 7.5, height - badgeHeight - 3));
           const badgeX = 14;
 
           // Pill Background
-          ctx.fillStyle = isFlip 
-            ? 'rgba(120, 53, 15, 0.90)'
-            : (isDemand ? 'rgba(6, 78, 59, 0.90)' : 'rgba(127, 29, 29, 0.90)');
+          if (isAiZone) {
+            ctx.fillStyle = isDemand ? 'rgba(15, 23, 42, 0.94)' : 'rgba(59, 7, 100, 0.94)';
+          } else {
+            ctx.fillStyle = isFlip 
+              ? 'rgba(120, 53, 15, 0.90)'
+              : (isDemand ? 'rgba(6, 78, 59, 0.90)' : 'rgba(127, 29, 29, 0.90)');
+          }
           ctx.beginPath();
           if (ctx.roundRect) {
             ctx.roundRect(badgeX, badgeY, textWidth + badgePaddingX * 2, badgeHeight, 3);
@@ -3273,12 +3477,20 @@
           }
           ctx.fill();
 
-          ctx.strokeStyle = isFlip ? '#F59E0B' : (isDemand ? '#10B981' : '#EF4444');
-          ctx.lineWidth = 0.8;
+          if (isAiZone) {
+            ctx.strokeStyle = isDemand ? '#38BDF8' : '#C084FC';
+          } else {
+            ctx.strokeStyle = isFlip ? '#F59E0B' : (isDemand ? '#10B981' : '#EF4444');
+          }
+          ctx.lineWidth = isAiZone ? 1.2 : 0.8;
           ctx.stroke();
 
-          ctx.fillStyle = isFlip ? '#FDE68A' : (isDemand ? '#A7F3D0' : '#FECACA');
-          ctx.fillText(badgeText, badgeX + badgePaddingX, badgeY + 10.5);
+          if (isAiZone) {
+            ctx.fillStyle = isDemand ? '#BAE6FD' : '#F5D0FE';
+          } else {
+            ctx.fillStyle = isFlip ? '#FDE68A' : (isDemand ? '#A7F3D0' : '#FECACA');
+          }
+          ctx.fillText(badgeText, badgeX + badgePaddingX, badgeY + 11);
         });
       }
 
@@ -3288,7 +3500,7 @@
         : (currentConfluence && currentConfluence.trendlines ? currentConfluence.trendlines : null);
 
       if (showTrendlines && trendlines) {
-        // Resistance Trendline (Red)
+        // Resistance Trendline (Red / AI Purple)
         const resLine = trendlines.resistance_line;
         if (resLine && resLine.active && resLine.start_time && resLine.end_time) {
           const rx1 = getXForTime(resLine.start_time);
@@ -3297,9 +3509,10 @@
           const ry2 = tvCandleSeries.priceToCoordinate(resLine.end_price);
 
           if (rx1 !== null && ry1 !== null && rx2 !== null && ry2 !== null && rx2 > rx1) {
+            const isAiTl = !!(resLine.is_ai_trendline);
             ctx.save();
             // Solid 2px Major Resistance Trendline
-            ctx.strokeStyle = '#EF4444';
+            ctx.strokeStyle = isAiTl ? '#C084FC' : '#EF4444';
             ctx.lineWidth = 2.0;
             ctx.setLineDash([]);
             ctx.beginPath();
@@ -3312,7 +3525,7 @@
               const slope = (ry2 - ry1) / (rx2 - rx1);
               const projX = Math.min(chartPlotWidth, rx2 + 90);
               const projY = ry2 + slope * (projX - rx2);
-              ctx.strokeStyle = 'rgba(239, 68, 68, 0.40)';
+              ctx.strokeStyle = isAiTl ? 'rgba(192, 132, 252, 0.40)' : 'rgba(239, 68, 68, 0.40)';
               ctx.setLineDash([4, 4]);
               ctx.beginPath();
               ctx.moveTo(rx2, ry2);
@@ -3327,11 +3540,11 @@
                 const ty = tvCandleSeries.priceToCoordinate(tp.price);
                 if (tx !== null && ty !== null) {
                   ctx.setLineDash([]);
-                  ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+                  ctx.fillStyle = isAiTl ? 'rgba(192, 132, 252, 0.25)' : 'rgba(239, 68, 68, 0.25)';
                   ctx.beginPath();
                   ctx.arc(tx, ty, 6, 0, Math.PI * 2);
                   ctx.fill();
-                  ctx.fillStyle = '#EF4444';
+                  ctx.fillStyle = isAiTl ? '#C084FC' : '#EF4444';
                   ctx.beginPath();
                   ctx.arc(tx, ty, 2.5, 0, Math.PI * 2);
                   ctx.fill();
@@ -3341,25 +3554,25 @@
 
             // Trendline Badge Pill
             const touchesStr = resLine.touches ? `${resLine.touches}x` : '2x';
-            const rBadge = `📉 RESISTANCE TRENDLINE [${touchesStr}] • ${resLine.status || 'ACTIVE'}`;
+            const rBadge = resLine.label || `📉 RESISTANCE TRENDLINE [${touchesStr}] • ${resLine.status || 'ACTIVE'}`;
             ctx.font = 'bold 9px "JetBrains Mono", monospace';
             const rTw = ctx.measureText(rBadge).width;
             const rBadgeH = 15;
             const rBadgeX = Math.max(14, Math.min(rx2 - rTw - 14, chartPlotWidth - rTw - 14));
             const rBadgeY = Math.max(10, Math.min(ry2 - 18, height - 20));
 
-            ctx.fillStyle = 'rgba(69, 10, 10, 0.90)';
+            ctx.fillStyle = isAiTl ? 'rgba(59, 7, 100, 0.94)' : 'rgba(69, 10, 10, 0.90)';
             ctx.fillRect(rBadgeX, rBadgeY, rTw + 12, rBadgeH);
-            ctx.strokeStyle = '#EF4444';
+            ctx.strokeStyle = isAiTl ? '#C084FC' : '#EF4444';
             ctx.lineWidth = 1;
             ctx.strokeRect(rBadgeX, rBadgeY, rTw + 12, rBadgeH);
-            ctx.fillStyle = '#FECACA';
+            ctx.fillStyle = isAiTl ? '#F5D0FE' : '#FECACA';
             ctx.fillText(rBadge, rBadgeX + 6, rBadgeY + 11);
             ctx.restore();
           }
         }
 
-        // Support Trendline (Green)
+        // Support Trendline (Green / AI Blue)
         const suppLine = trendlines.support_line;
         if (suppLine && suppLine.active && suppLine.start_time && suppLine.end_time) {
           const sx1 = getXForTime(suppLine.start_time);
@@ -3368,9 +3581,10 @@
           const sy2 = tvCandleSeries.priceToCoordinate(suppLine.end_price);
 
           if (sx1 !== null && sy1 !== null && sx2 !== null && sy2 !== null && sx2 > sx1) {
+            const isAiSuppTl = !!(suppLine.is_ai_trendline);
             ctx.save();
             // Solid 2px Major Support Trendline
-            ctx.strokeStyle = '#10B981';
+            ctx.strokeStyle = isAiSuppTl ? '#38BDF8' : '#10B981';
             ctx.lineWidth = 2.0;
             ctx.setLineDash([]);
             ctx.beginPath();
@@ -3383,7 +3597,7 @@
               const slope = (sy2 - sy1) / (sx2 - sx1);
               const projX = Math.min(chartPlotWidth, sx2 + 90);
               const projY = sy2 + slope * (projX - sx2);
-              ctx.strokeStyle = 'rgba(16, 185, 129, 0.40)';
+              ctx.strokeStyle = isAiSuppTl ? 'rgba(56, 189, 248, 0.40)' : 'rgba(16, 185, 129, 0.40)';
               ctx.setLineDash([4, 4]);
               ctx.beginPath();
               ctx.moveTo(sx2, sy2);
@@ -3398,11 +3612,11 @@
                 const ty = tvCandleSeries.priceToCoordinate(tp.price);
                 if (tx !== null && ty !== null) {
                   ctx.setLineDash([]);
-                  ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+                  ctx.fillStyle = isAiSuppTl ? 'rgba(56, 189, 248, 0.25)' : 'rgba(16, 185, 129, 0.25)';
                   ctx.beginPath();
                   ctx.arc(tx, ty, 6, 0, Math.PI * 2);
                   ctx.fill();
-                  ctx.fillStyle = '#10B981';
+                  ctx.fillStyle = isAiSuppTl ? '#38BDF8' : '#10B981';
                   ctx.beginPath();
                   ctx.arc(tx, ty, 2.5, 0, Math.PI * 2);
                   ctx.fill();
@@ -3412,23 +3626,101 @@
 
             // Trendline Badge Pill
             const touchesStr = suppLine.touches ? `${suppLine.touches}x` : '2x';
-            const sBadge = `📈 SUPPORT TRENDLINE [${touchesStr}] • ${suppLine.status || 'ACTIVE'}`;
+            const sBadge = suppLine.label || `📈 SUPPORT TRENDLINE [${touchesStr}] • ${suppLine.status || 'ACTIVE'}`;
             ctx.font = 'bold 9px "JetBrains Mono", monospace';
             const sTw = ctx.measureText(sBadge).width;
             const sBadgeH = 15;
             const sBadgeX = Math.max(14, Math.min(sx2 - sTw - 14, chartPlotWidth - sTw - 14));
             const sBadgeY = Math.max(10, Math.min(sy2 + 6, height - 20));
 
-            ctx.fillStyle = 'rgba(6, 78, 59, 0.90)';
+            ctx.fillStyle = isAiSuppTl ? 'rgba(15, 23, 42, 0.94)' : 'rgba(6, 78, 59, 0.90)';
             ctx.fillRect(sBadgeX, sBadgeY, sTw + 12, sBadgeH);
-            ctx.strokeStyle = '#10B981';
+            ctx.strokeStyle = isAiSuppTl ? '#38BDF8' : '#10B981';
             ctx.lineWidth = 1;
             ctx.strokeRect(sBadgeX, sBadgeY, sTw + 12, sBadgeH);
-            ctx.fillStyle = '#A7F3D0';
+            ctx.fillStyle = isAiSuppTl ? '#BAE6FD' : '#A7F3D0';
             ctx.fillText(sBadge, sBadgeX + 6, sBadgeY + 11);
             ctx.restore();
           }
         }
+      }
+
+      // 2b. AI Anticipated Price Trajectory Path (Multi-Waypoint Forecast)
+      const projectedPath = (currentData && currentData.projected_path && currentData.projected_path.length > 0)
+        ? currentData.projected_path
+        : null;
+
+      if (showAiPath && projectedPath && projectedPath.length > 1) {
+        ctx.save();
+        const validWps = [];
+        projectedPath.forEach(pt => {
+          if (!pt || isNaN(pt.price)) return;
+          const px = getXForTime(pt.time);
+          const py = tvCandleSeries.priceToCoordinate(pt.price);
+          if (px !== null && py !== null && px >= 0 && px <= chartPlotWidth + 40) {
+            validWps.push({ ...pt, x: px, y: py });
+          }
+        });
+
+        if (validWps.length >= 2) {
+          // Connect waypoints with sleek futuristic dashed trajectory
+          ctx.strokeStyle = '#A855F7';
+          ctx.lineWidth = 2.4;
+          ctx.setLineDash([6, 4]);
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
+          ctx.beginPath();
+          ctx.moveTo(validWps[0].x, validWps[0].y);
+          for (let i = 1; i < validWps.length; i++) {
+            ctx.lineTo(validWps[i].x, validWps[i].y);
+          }
+          ctx.stroke();
+
+          // Render Waypoint Nodes & Badges
+          validWps.forEach((wp, idx) => {
+            ctx.save();
+            ctx.setLineDash([]);
+            const isFirst = (idx === 0);
+            const isLast = (idx === validWps.length - 1);
+            const nodeColor = isFirst ? '#38BDF8' : (isLast ? '#10B981' : '#E879F9');
+
+            // Halo Ring
+            ctx.fillStyle = isFirst ? 'rgba(56, 189, 248, 0.25)' : (isLast ? 'rgba(16, 185, 129, 0.25)' : 'rgba(232, 121, 249, 0.25)');
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Core Node Dot
+            ctx.fillStyle = nodeColor;
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            // Trajectory Label Pill
+            const stepNum = wp.step || (idx + 1);
+            const wpText = `Step ${stepNum}: ${wp.label || 'Waypoint'} [${cSym}${Number(wp.price).toFixed(1)}]`;
+            ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+            const wpTw = ctx.measureText(wpText).width;
+            const wpBadgeH = 15;
+            const wpX = Math.max(10, Math.min(wp.x - (wpTw / 2), chartPlotWidth - wpTw - 14));
+            const wpY = (idx % 2 === 0) 
+              ? Math.max(12, wp.y - 22) 
+              : Math.min(height - 24, wp.y + 10);
+
+            ctx.fillStyle = 'rgba(30, 10, 60, 0.94)';
+            ctx.fillRect(wpX - 4, wpY, wpTw + 12, wpBadgeH);
+            ctx.strokeStyle = nodeColor;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(wpX - 4, wpY, wpTw + 12, wpBadgeH);
+            ctx.fillStyle = '#F3E8FF';
+            ctx.fillText(wpText, wpX + 2, wpY + 10.5);
+            ctx.restore();
+          });
+        }
+        ctx.restore();
       }
 
       // 3. ICT / Dow Theory Market Structure Pivots (HH, HL, LH, LL) & BOS/CHoCH Breaks
@@ -4901,6 +5193,7 @@
       if (data.confluence) {
         updateConfluenceUI(data.confluence, data.breakout_radar);
       }
+      updateAiChartHud(data);
       setTimeout(() => renderZonesOverlay(), 80);
     }
 
