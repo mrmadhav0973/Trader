@@ -498,25 +498,24 @@ def get_analysis(
         force_refresh=False
     )
 
-    # Harmonize AI Zones: AI-discovered institutional zones take top priority with prominent badges
+    # Curate AI Zones: The AI Brain decides the true institutional supply and demand zones
     ai_zones = ai_chart.get("ai_zones", [])
-    algo_zones = confluence.get("all_sr_zones", [])
     combined_zones = []
-    for az in ai_zones:
-        az_copy = dict(az)
-        az_copy["is_ai_zone"] = True
-        combined_zones.append(az_copy)
-    for z in algo_zones:
-        mid = z.get("mid_price", 0)
-        if not any(abs(az.get("mid_price", 0) - mid) < (curr_price * 0.008) for az in ai_zones):
-            combined_zones.append(z)
+    if ai_zones:
+        for az in ai_zones:
+            az_copy = dict(az)
+            az_copy["is_ai_zone"] = True
+            combined_zones.append(az_copy)
+    else:
+        combined_zones = confluence.get("all_sr_zones", [])
 
-    # Harmonize Trendlines: AI-identified institutional boundaries take precedence
-    chart_trendlines = dict(confluence.get("trendlines", {}))
+    # Curate Trendlines: The AI Brain decides the true behavioral trendlines
     ai_trendlines = ai_chart.get("ai_trendlines", [])
     if ai_trendlines:
+        chart_trendlines = {}
         for tl in ai_trendlines:
             tl_type = tl.get("type", "").upper()
+            clean_lbl = tl.get("label", "Institutional Trendline").replace("🧠 [AI] ", "").replace("🧠 ", "")
             tl_obj = {
                 "active": True,
                 "type": tl_type,
@@ -524,16 +523,86 @@ def get_analysis(
                 "start_price": tl.get("start_price"),
                 "end_time": tl.get("end_time"),
                 "end_price": tl.get("end_price"),
-                "label": f"🧠 [AI] {tl.get('label', 'Institutional Trendline')}",
+                "label": f"🧠 [AI] {clean_lbl}",
                 "touches": tl.get("touches", 3),
                 "is_ai_trendline": True,
                 "slope": tl.get("slope", 0.0),
-                "status": "ACTIVE AI BOUNDARY"
+                "status": "ACTIVE AI BOUNDARY",
+                "placement_reason": tl.get("placement_reason", "")
             }
             if tl_type == "RESISTANCE":
                 chart_trendlines["resistance_line"] = tl_obj
             elif tl_type == "SUPPORT":
                 chart_trendlines["support_line"] = tl_obj
+    else:
+        chart_trendlines = dict(confluence.get("trendlines", {}))
+
+    # Curate Fibonacci Retracement from AI Brain
+    ai_fib = ai_chart.get("ai_fibonacci", {})
+    if ai_fib and ai_fib.get("active"):
+        chart_fib = {
+            "active": True,
+            "swing_high": ai_fib.get("impulse_high"),
+            "swing_low": ai_fib.get("impulse_low"),
+            "golden_pocket_top": ai_fib.get("golden_pocket_max", ai_fib.get("golden_pocket_min", 0) * 1.01),
+            "golden_pocket_bottom": ai_fib.get("golden_pocket_min"),
+            "fib_705": ai_fib.get("ote_price"),
+            "label": ai_fib.get("label", "🧠 [AI FIB] Golden Pocket OTE (0.618 - 0.786)"),
+            "is_ai_fib": True,
+            "placement_reason": ai_fib.get("placement_reason", "")
+        }
+    elif ai_fib and not ai_fib.get("active"):
+        chart_fib = {"active": False, "reason": ai_fib.get("placement_reason", "Suppressed by AI (Not in clean impulse)")}
+    else:
+        chart_fib = confluence.get("fib_golden_pocket", {})
+
+    # Curate Fair Value Gaps (FVGs) from AI Brain
+    ai_fvg = ai_chart.get("ai_fvg", {})
+    if ai_fvg and ai_fvg.get("active"):
+        chart_fvgs = [{
+            "type": ai_fvg.get("type", "BEARISH"),
+            "top": ai_fvg.get("top"),
+            "bottom": ai_fvg.get("bottom"),
+            "mid_ce": ai_fvg.get("mid_ce", (ai_fvg.get("top", 0) + ai_fvg.get("bottom", 0)) / 2.0),
+            "label": ai_fvg.get("label", "🧠 [AI FVG] Unmitigated Institutional Imbalance"),
+            "is_ai_fvg": True,
+            "placement_reason": ai_fvg.get("placement_reason", "")
+        }]
+    elif ai_fvg and not ai_fvg.get("active"):
+        chart_fvgs = []
+    else:
+        chart_fvgs = confluence.get("fvgs", [])[:2]
+
+    # Curate Parallel Channel from AI Brain
+    ai_chan = ai_chart.get("ai_channel", {})
+    if ai_chan and ai_chan.get("active"):
+        up_p = ai_chan.get("upper_price", curr_price * 1.03)
+        low_p = ai_chan.get("lower_price", curr_price * 0.97)
+        t_start = candles[-22]["time"] if len(candles) >= 22 else (candles[0]["time"] if candles else int(time.time() - 86400 * 20))
+        t_end = candles[-1]["time"] if candles else int(time.time())
+        chart_channel = {
+            "active": True,
+            "channel_type": f"🧠 [AI] {ai_chan.get('channel_type', 'DESCENDING')} CHANNEL",
+            "status": "AI Active Channel",
+            "slope_pct": round(((up_p - low_p) / low_p * 100) * (-1 if "DESC" in ai_chan.get("channel_type", "") else 1), 2),
+            "upper_line": {"start_time": t_start, "start_price": up_p, "end_time": t_end, "end_price": up_p * 0.98},
+            "lower_line": {"start_time": t_start, "start_price": low_p, "end_time": t_end, "end_price": low_p * 0.98},
+            "median_line": {"start_time": t_start, "start_price": (up_p + low_p) / 2.0, "end_time": t_end, "end_price": ((up_p + low_p) / 2.0) * 0.98},
+            "is_ai_channel": True,
+            "placement_reason": ai_chan.get("placement_reason", "")
+        }
+    elif ai_chan and not ai_chan.get("active"):
+        chart_channel = {"active": False, "reason": ai_chan.get("placement_reason", "Suppressed by AI (Market breaking out/trending)")}
+    else:
+        chart_channel = confluence.get("parallel_channel", {})
+
+    # Clean up Market Structure noise: keep only the most recent 3 breaks & 8 pivots
+    ms_raw = confluence.get("market_structure", {})
+    clean_ms = dict(ms_raw)
+    if "structure_breaks" in clean_ms and clean_ms["structure_breaks"]:
+        clean_ms["structure_breaks"] = clean_ms["structure_breaks"][-3:]
+    if "labeled_pivots" in clean_ms and clean_ms["labeled_pivots"]:
+        clean_ms["labeled_pivots"] = clean_ms["labeled_pivots"][-8:]
 
     # Synchronize Confluence Action, Score & Execution Plan with AI Brain
     if ai_chart.get("action"):
@@ -583,11 +652,14 @@ def get_analysis(
         "trendlines": chart_trendlines,
         "projected_path": ai_chart.get("projected_path", []),
         "ai_chart_analysis": ai_chart,
-        "market_structure": confluence.get("market_structure", {}),
-        "parallel_channel": confluence.get("parallel_channel", {}),
+        "ai_candle_annotations": ai_chart.get("ai_candle_annotations", []),
+        "selected_elements_rationale": ai_chart.get("selected_elements_rationale", ""),
+        "suppressed_elements": ai_chart.get("suppressed_elements", []),
+        "market_structure": clean_ms,
+        "parallel_channel": chart_channel,
         "mtf_alignment": confluence.get("mtf_alignment", {}),
-        "fvgs": confluence.get("fvgs", []),
-        "fib_golden_pocket": confluence.get("fib_golden_pocket", {}),
+        "fvgs": chart_fvgs,
+        "fib_golden_pocket": chart_fib,
         "advanced_confluence": confluence.get("advanced_confluence", {}),
         "news_intelligence": confluence.get("news_intelligence", {}),
         "breakout_radar": radar,

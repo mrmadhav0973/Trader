@@ -2835,6 +2835,7 @@
           <div class="ai-hud-text">
             <span class="ai-hud-title" id="aiHudTitle">🧠 AI Brain: Initializing Market Vision...</span>
             <span class="ai-hud-sub" id="aiHudSub">Analyzing Wyckoff phases, liquidity wicks, and smart money blocks...</span>
+            <span class="ai-hud-elements" id="aiHudElements" style="display:none; font-size:9.5px; color:#C4B5FD; margin-top:2px; max-width:650px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
           </div>
           <button class="btn-ai-hud-reanalyze" id="btnAiHudReanalyze" onclick="reanalyzeChartWithAi()" title="Force real-time re-analysis of current chart candles">
             ⚡ Re-Analyze
@@ -3122,12 +3123,14 @@
     function updateAiChartHud(data) {
       const titleEl = document.getElementById('aiHudTitle');
       const subEl = document.getElementById('aiHudSub');
+      const elemEl = document.getElementById('aiHudElements');
       if (!titleEl) return;
 
       const ai = (data && data.ai_chart_analysis) ? data.ai_chart_analysis : null;
       if (!ai) {
         titleEl.textContent = '🧠 AI Brain: Active';
         if (subEl) subEl.textContent = 'Directly analyzing candlestick sequences & liquidity blocks...';
+        if (elemEl) elemEl.style.display = 'none';
         return;
       }
 
@@ -3140,6 +3143,25 @@
       titleEl.innerHTML = `🧠 AI Brain: <strong style="color: ${actColor}">${act} (${score}%)</strong> • ${escapeHtml(setup)}`;
       if (subEl) {
         subEl.textContent = `Regime: ${ai.regime || 'Institutional Flow'} • Trap: ${trap}`;
+      }
+
+      const rationale = (data && data.selected_elements_rationale)
+        ? data.selected_elements_rationale
+        : (ai && ai.selected_elements_rationale ? ai.selected_elements_rationale : '');
+      const suppressed = (data && data.suppressed_elements && data.suppressed_elements.length > 0)
+        ? data.suppressed_elements.join(', ')
+        : (ai && ai.suppressed_elements ? ai.suppressed_elements.join(', ') : '');
+
+      if (elemEl && (rationale || suppressed)) {
+        elemEl.style.display = 'block';
+        let elText = `🎯 <strong>AI Elements Plan:</strong> ${escapeHtml(rationale)}`;
+        if (suppressed) {
+          elText += ` <span style="color:#94A3B8;">(Suppressed as Noise: ${escapeHtml(suppressed)})</span>`;
+        }
+        elemEl.innerHTML = elText;
+        elemEl.title = rationale + (suppressed ? ` | Suppressed: ${suppressed}` : '');
+      } else if (elemEl) {
+        elemEl.style.display = 'none';
       }
     }
 
@@ -3723,6 +3745,71 @@
         ctx.restore();
       }
 
+      // 2c. AI Candlestick Anatomy Callouts / Annotations (Pinpoint Smart Money Marks)
+      const aiAnnotations = (currentData && currentData.ai_candle_annotations && currentData.ai_candle_annotations.length > 0)
+        ? currentData.ai_candle_annotations
+        : (currentData && currentData.ai_chart_analysis && currentData.ai_chart_analysis.ai_candle_annotations ? currentData.ai_chart_analysis.ai_candle_annotations : []);
+
+      if (showAiBrain && aiAnnotations && aiAnnotations.length > 0) {
+        aiAnnotations.forEach(ann => {
+          if (!ann || isNaN(ann.price)) return;
+          const ax = getXForTime(ann.time);
+          const ay = tvCandleSeries.priceToCoordinate(ann.price);
+          if (ax === null || ay === null || ax < 10 || ax > chartPlotWidth - 10) return;
+
+          const isSweep = ann.type && (ann.type.includes('SWEEP') || ann.type.includes('GRAB'));
+          const isOB = ann.type && ann.type.includes('ORDER_BLOCK');
+          const isBreak = ann.type && ann.type.includes('BREAK');
+
+          const annColor = isSweep ? '#EC4899' : (isOB ? '#A855F7' : (isBreak ? '#F59E0B' : '#06B6D4'));
+          const annBg = isSweep ? 'rgba(80, 7, 36, 0.94)' : (isOB ? 'rgba(46, 16, 101, 0.94)' : (isBreak ? 'rgba(69, 26, 3, 0.94)' : 'rgba(8, 51, 68, 0.94)'));
+          const annTextColor = isSweep ? '#FCE7F3' : (isOB ? '#EDE9FE' : (isBreak ? '#FEF3C7' : '#E0F2FE'));
+
+          ctx.save();
+          // Vertical guide pin line
+          ctx.strokeStyle = annColor;
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([2, 2]);
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          const pinY = (ay > height / 2) ? (ay - 34) : (ay + 34);
+          ctx.lineTo(ax, pinY);
+          ctx.stroke();
+
+          // Anchor dot at candle wick
+          ctx.fillStyle = annColor;
+          ctx.beginPath();
+          ctx.arc(ax, ay, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Callout Pill Badge
+          const badgeText = ann.label || '🧠 AI Callout';
+          ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+          const bTw = ctx.measureText(badgeText).width;
+          const bH = 16;
+          const bPadX = 6;
+          const bX = Math.max(8, Math.min(ax - (bTw / 2) - bPadX, chartPlotWidth - bTw - (bPadX * 2) - 8));
+          const bY = (ay > height / 2) ? (pinY - bH) : pinY;
+
+          ctx.fillStyle = annBg;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(bX, bY, bTw + (bPadX * 2), bH, 3);
+          } else {
+            ctx.rect(bX, bY, bTw + (bPadX * 2), bH);
+          }
+          ctx.fill();
+
+          ctx.strokeStyle = annColor;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.fillStyle = annTextColor;
+          ctx.fillText(badgeText, bX + bPadX, bY + 11.5);
+          ctx.restore();
+        });
+      }
+
       // 3. ICT / Dow Theory Market Structure Pivots (HH, HL, LH, LL) & BOS/CHoCH Breaks
       const msData = (currentData && currentData.market_structure)
         ? currentData.market_structure
@@ -3934,9 +4021,10 @@
           ctx.restore();
 
           // FVG Label Pill
-          const fvgLabel = isBull 
+          const isAiFvg = !!(f.is_ai_fvg);
+          const fvgLabel = f.label || (isBull 
             ? `🧬 BULL FVG • CE: ${cSym}${Number(f.mid_ce || (f.top+f.bottom)/2).toFixed(1)} [${cSym}${Number(f.bottom).toFixed(1)} - ${cSym}${Number(f.top).toFixed(1)}]`
-            : `🧬 BEAR FVG • CE: ${cSym}${Number(f.mid_ce || (f.top+f.bottom)/2).toFixed(1)} [${cSym}${Number(f.bottom).toFixed(1)} - ${cSym}${Number(f.top).toFixed(1)}]`;
+            : `🧬 BEAR FVG • CE: ${cSym}${Number(f.mid_ce || (f.top+f.bottom)/2).toFixed(1)} [${cSym}${Number(f.bottom).toFixed(1)} - ${cSym}${Number(f.top).toFixed(1)}]`);
 
           ctx.font = 'bold 9px "JetBrains Mono", monospace';
           const fvgTw = ctx.measureText(fvgLabel).width;
@@ -3991,7 +4079,10 @@
             ctx.restore();
 
             // Golden Pocket Badge
-            const fibBadge = `🎯 FIB GOLDEN POCKET (0.618-0.786) • OTE: ${cSym}${Number(fib.fib_705).toFixed(1)} [${cSym}${Number(fib.golden_pocket_bottom).toFixed(1)} - ${cSym}${Number(fib.golden_pocket_top).toFixed(1)}]`;
+            const isAiFib = !!(fib.is_ai_fib);
+            const fibBadge = fib.label
+              ? `${fib.label} [${cSym}${Number(fib.golden_pocket_bottom).toFixed(1)} - ${cSym}${Number(fib.golden_pocket_top).toFixed(1)}] • OTE: ${cSym}${Number(fib.fib_705 || ((fib.golden_pocket_bottom+fib.golden_pocket_top)/2)).toFixed(1)}`
+              : `🎯 FIB GOLDEN POCKET (0.618-0.786) • OTE: ${cSym}${Number(fib.fib_705).toFixed(1)} [${cSym}${Number(fib.golden_pocket_bottom).toFixed(1)} - ${cSym}${Number(fib.golden_pocket_top).toFixed(1)}]`;
             ctx.font = 'bold 9px "JetBrains Mono", monospace';
             const fibTw = ctx.measureText(fibBadge).width;
             const fibBadgeH = 15;

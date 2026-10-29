@@ -36,8 +36,10 @@ async def run_vision_test():
 
         hud_title = await page.inner_text("#aiHudTitle")
         hud_sub = await page.inner_text("#aiHudSub")
+        hud_elements = await page.inner_text("#aiHudElements")
         print(f"HUD Title: {hud_title.encode('ascii', 'replace').decode()}")
         print(f"HUD Subtitle: {hud_sub.encode('ascii', 'replace').decode()}")
+        print(f"HUD Elements: {hud_elements.encode('ascii', 'replace').decode()}")
 
         # Capture element screenshot of the full chart with AI HUD and overlays
         os.makedirs(ARTIFACT_DIR, exist_ok=True)
